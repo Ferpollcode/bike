@@ -6,7 +6,7 @@ const SUPABASE_ROW_ID = "bicifer-remitos";
 
 const defaultState = {
   settings: {
-    bizName: "PIPA-BIKE",
+    bizName: "BIKE STORE MDZ",
     bizPhone: "",
     bizAddress: "",
     bizFooter: "Gracias por su compra.",
@@ -160,7 +160,7 @@ function render() {
   renderAccount();
   renderReceipts();
   renderSettings();
-  if ($("#homeBusinessName")) $("#homeBusinessName").textContent = state.settings.bizName || "PIPA-BIKE";
+  if ($("#homeBusinessName")) $("#homeBusinessName").textContent = state.settings.bizName || "BIKE STORE MDZ";
   $("#nextReceiptNumber").textContent = `Nro ${receiptNumber()}`;
 }
 
@@ -1115,7 +1115,7 @@ function bindEvents() {
 
   $("#settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
-    state.settings.bizName = $("#bizName").value.trim() || "PIPA-BIKE";
+    state.settings.bizName = $("#bizName").value.trim() || "BIKE STORE MDZ";
     state.settings.bizPhone = $("#bizPhone").value.trim();
     state.settings.bizAddress = $("#bizAddress").value.trim();
     state.settings.bizFooter = $("#bizFooter").value.trim();
@@ -1202,3 +1202,4 @@ export async function initBiciferApp() {
   editingCustomerId = null;
   init();
 }
+

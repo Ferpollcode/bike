@@ -1,4 +1,4 @@
-# PIPA-BIKE
+# BIKE STORE MDZ
 
 Aplicacion Next.js para gestionar remitos, clientes, productos y cuentas corrientes desde distintos dispositivos.
 
@@ -78,3 +78,4 @@ Al importar, la app guarda el respaldo en Supabase y queda disponible para los o
 npm run lint
 npm run build
 ```
+

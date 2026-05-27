@@ -7,7 +7,7 @@ const appMarkup = `
   <header class="app-header">
     <div>
       <p class="eyebrow">Venta movil</p>
-      <h1>PIPA-BIKE</h1>
+      <h1>BIKE STORE MDZ</h1>
     </div>
     <button class="icon-button" id="backupBtn" type="button" title="Exportar respaldo">Respaldar</button>
   </header>
@@ -176,3 +176,4 @@ export default function HomePage() {
 
   return <div dangerouslySetInnerHTML={{ __html: appMarkup }} />;
 }
+
