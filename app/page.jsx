@@ -13,17 +13,20 @@ const appMarkup = `
   </header>
 
   <main class="app-shell">
-    <label class="mobile-module-menu" for="moduleMenu">
-      Modulo
-      <select id="moduleMenu" aria-label="Cambiar modulo">
-        <option value="venta">Venta</option>
-        <option value="clientes">Clientes</option>
-        <option value="productos">Productos</option>
-        <option value="cuentas">Cuentas</option>
-        <option value="remitos">Remitos</option>
-        <option value="ajustes">Ajustes</option>
-      </select>
-    </label>
+    <div class="mobile-module-menu" data-view="venta">
+      <span>Modulo</span>
+      <button id="moduleMenuButton" class="module-menu-button" type="button" aria-expanded="false" aria-controls="moduleMenuList">
+        <span id="moduleMenuLabel">Venta</span>
+      </button>
+      <div id="moduleMenuList" class="module-menu-list hidden">
+        <button data-module-option="venta" type="button">Venta</button>
+        <button data-module-option="clientes" type="button">Clientes</button>
+        <button data-module-option="productos" type="button">Productos</button>
+        <button data-module-option="cuentas" type="button">Cuentas</button>
+        <button data-module-option="remitos" type="button">Remitos</button>
+        <button data-module-option="ajustes" type="button">Ajustes</button>
+      </div>
+    </div>
 
     <nav class="tabs" aria-label="Secciones">
       <button class="tab active" data-view="venta" type="button">Venta</button>

@@ -28,6 +28,14 @@ let saveTimer = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+const moduleLabels = {
+  venta: "Venta",
+  clientes: "Clientes",
+  productos: "Productos",
+  cuentas: "Cuentas",
+  remitos: "Remitos",
+  ajustes: "Ajustes"
+};
 
 function localState() {
   const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -135,9 +143,12 @@ function switchView(viewId) {
   $$(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === viewId));
   $$(".menu-button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
-  if ($("#moduleMenu")) {
-    $("#moduleMenu").value = viewId;
-    $("#moduleMenu").closest(".mobile-module-menu")?.setAttribute("data-view", viewId);
+  if ($("#moduleMenuButton")) {
+    $("#moduleMenuLabel").textContent = moduleLabels[viewId] || "Venta";
+    $("#moduleMenuButton").setAttribute("aria-expanded", "false");
+    $("#moduleMenuList")?.classList.add("hidden");
+    $(".mobile-module-menu")?.setAttribute("data-view", viewId);
+    $$("[data-module-option]").forEach((button) => button.classList.toggle("active", button.dataset.moduleOption === viewId));
   }
   render();
 }
@@ -1010,7 +1021,23 @@ function exportData() {
 
 function bindEvents() {
   $$(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
-  if ($("#moduleMenu")) $("#moduleMenu").addEventListener("change", (event) => switchView(event.target.value));
+  if ($("#moduleMenuButton")) {
+    $("#moduleMenuButton").addEventListener("click", () => {
+      const list = $("#moduleMenuList");
+      const isOpen = !list.classList.contains("hidden");
+      list.classList.toggle("hidden", isOpen);
+      $("#moduleMenuButton").setAttribute("aria-expanded", String(!isOpen));
+    });
+    $("#moduleMenuList").addEventListener("click", (event) => {
+      const option = event.target.closest("[data-module-option]");
+      if (option) switchView(option.dataset.moduleOption);
+    });
+    document.addEventListener("click", (event) => {
+      if (event.target.closest(".mobile-module-menu")) return;
+      $("#moduleMenuList")?.classList.add("hidden");
+      $("#moduleMenuButton")?.setAttribute("aria-expanded", "false");
+    });
+  }
   $$(".menu-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$(".back-home").forEach((button) => button.addEventListener("click", () => switchView("inicio")));
 
@@ -1159,7 +1186,7 @@ function bindEvents() {
 function init() {
   $("#saleDate").value = today();
   $("#paymentDate").value = today();
-  if ($("#moduleMenu")) $("#moduleMenu").closest(".mobile-module-menu")?.setAttribute("data-view", $("#moduleMenu").value);
+  if ($("#moduleMenuButton")) $(".mobile-module-menu")?.setAttribute("data-view", "venta");
   addSaleLine();
   bindEvents();
   render();

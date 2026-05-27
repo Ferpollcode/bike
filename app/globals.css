@@ -689,53 +689,123 @@ textarea {
     font-weight: 700;
   }
 
-  .mobile-module-menu select {
-    appearance: none;
+  .module-menu-button {
+    position: relative;
+    width: 100%;
     min-height: 48px;
     border: 0;
     border-radius: 8px;
     padding: 12px 44px 12px 14px;
     color: #fff;
     background-color: #2563eb;
-    background-image:
-      linear-gradient(45deg, transparent 50%, currentColor 50%),
-      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position:
-      calc(100% - 22px) 21px,
-      calc(100% - 16px) 21px;
-    background-size: 6px 6px, 6px 6px;
-    background-repeat: no-repeat;
     box-shadow: 0 8px 18px rgba(16, 24, 40, 0.18);
     font-weight: 700;
+    text-align: left;
   }
 
-  .mobile-module-menu[data-view="venta"] select {
+  .module-menu-button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-65%) rotate(45deg);
+  }
+
+  .module-menu-list {
+    position: absolute;
+    top: calc(100% - 6px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 14px 30px rgba(16, 24, 40, 0.2);
+  }
+
+  .module-menu-list.hidden {
+    display: none;
+  }
+
+  .module-menu-list button {
+    min-height: 42px;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #17202a;
+    background: #e9eef3;
+    text-align: left;
+  }
+
+  .module-menu-list button[data-module-option="venta"] {
+    background: #dbeafe;
+    color: #1e3a8a;
+  }
+
+  .module-menu-list button[data-module-option="clientes"] {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .module-menu-list button[data-module-option="productos"] {
+    background: #ccfbf1;
+    color: #115e59;
+  }
+
+  .module-menu-list button[data-module-option="cuentas"] {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .module-menu-list button[data-module-option="remitos"] {
+    background: #fce7f3;
+    color: #9d174d;
+  }
+
+  .module-menu-list button[data-module-option="ajustes"] {
+    background: #ede9fe;
+    color: #5b21b6;
+  }
+
+  .module-menu-list button.active {
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(16, 24, 40, 0.16);
+  }
+
+  .mobile-module-menu[data-view="venta"] .module-menu-button,
+  .module-menu-list button[data-module-option="venta"].active {
     background-color: #2563eb;
   }
 
-  .mobile-module-menu[data-view="clientes"] select {
+  .mobile-module-menu[data-view="clientes"] .module-menu-button,
+  .module-menu-list button[data-module-option="clientes"].active {
     background-color: #16a34a;
   }
 
-  .mobile-module-menu[data-view="productos"] select {
+  .mobile-module-menu[data-view="productos"] .module-menu-button,
+  .module-menu-list button[data-module-option="productos"].active {
     background-color: #0f766e;
   }
 
-  .mobile-module-menu[data-view="cuentas"] select {
+  .mobile-module-menu[data-view="cuentas"] .module-menu-button,
+  .module-menu-list button[data-module-option="cuentas"].active {
     background-color: #d97706;
   }
 
-  .mobile-module-menu[data-view="remitos"] select {
+  .mobile-module-menu[data-view="remitos"] .module-menu-button,
+  .module-menu-list button[data-module-option="remitos"].active {
     background-color: #db2777;
   }
 
-  .mobile-module-menu[data-view="ajustes"] select {
+  .mobile-module-menu[data-view="ajustes"] .module-menu-button,
+  .module-menu-list button[data-module-option="ajustes"].active {
     background-color: #7c3aed;
-  }
-
-  .mobile-module-menu option {
-    color: var(--text);
-    background: #fff;
   }
 
   .grid.two,
