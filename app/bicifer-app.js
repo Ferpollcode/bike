@@ -6,7 +6,7 @@ const SUPABASE_ROW_ID = "bicifer-remitos";
 
 const defaultState = {
   settings: {
-    bizName: "BiciFer",
+    bizName: "PIPA-BIKE",
     bizPhone: "",
     bizAddress: "",
     bizFooter: "Gracias por su compra.",
@@ -160,7 +160,7 @@ function render() {
   renderAccount();
   renderReceipts();
   renderSettings();
-  if ($("#homeBusinessName")) $("#homeBusinessName").textContent = state.settings.bizName || "BiciFer Remitos";
+  if ($("#homeBusinessName")) $("#homeBusinessName").textContent = state.settings.bizName || "PIPA-BIKE";
   $("#nextReceiptNumber").textContent = `Nro ${receiptNumber()}`;
 }
 
@@ -1115,7 +1115,7 @@ function bindEvents() {
 
   $("#settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
-    state.settings.bizName = $("#bizName").value.trim() || "BiciFer";
+    state.settings.bizName = $("#bizName").value.trim() || "PIPA-BIKE";
     state.settings.bizPhone = $("#bizPhone").value.trim();
     state.settings.bizAddress = $("#bizAddress").value.trim();
     state.settings.bizFooter = $("#bizFooter").value.trim();

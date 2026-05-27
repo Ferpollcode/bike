@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "BiciFer Remitos",
+  title: "PIPA-BIKE",
   description: "Gestion de remitos, clientes, productos y cuentas corrientes"
 };
 
