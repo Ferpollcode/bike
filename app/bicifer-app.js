@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const STORAGE_KEY = "bicifer-remitos-v1";
+const PENDING_SYNC_KEY = `${STORAGE_KEY}-pending-sync`;
 const SUPABASE_TABLE = "app_state";
 const SUPABASE_ROW_ID = "bicifer-remitos";
 
@@ -25,9 +26,15 @@ let editingCustomerId = null;
 let supabase = null;
 let initialized = false;
 let saveTimer = null;
+let syncInProgress = false;
+let pendingProductImport = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+const on = (selector, eventName, handler) => {
+  const element = $(selector);
+  if (element) element.addEventListener(eventName, handler);
+};
 const moduleLabels = {
   venta: "Venta",
   clientes: "Clientes",
@@ -47,6 +54,19 @@ function localState() {
   }
 }
 
+function saveLocalState(nextState) {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+}
+
+function hasPendingSync() {
+  return window.localStorage.getItem(PENDING_SYNC_KEY) === "1";
+}
+
+function setPendingSync(isPending) {
+  if (isPending) window.localStorage.setItem(PENDING_SYNC_KEY, "1");
+  else window.localStorage.removeItem(PENDING_SYNC_KEY);
+}
+
 function createSupabaseBrowserClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -57,6 +77,11 @@ function createSupabaseBrowserClient() {
 async function loadState() {
   const fallback = localState() || structuredClone(defaultState);
   if (!supabase) return fallback;
+
+  if (hasPendingSync()) {
+    flushPendingSync();
+    return fallback;
+  }
 
   const { data, error } = await supabase
     .from(SUPABASE_TABLE)
@@ -75,24 +100,82 @@ async function loadState() {
   }
 
   const loaded = { ...structuredClone(defaultState), ...data.data };
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded));
+  saveLocalState(loaded);
+  setPendingSync(false);
   return loaded;
 }
 
 async function saveStateToSupabase(nextState) {
-  if (!supabase) return;
-  const { error } = await supabase.from(SUPABASE_TABLE).upsert({
-    id: SUPABASE_ROW_ID,
-    data: nextState,
-    updated_at: new Date().toISOString()
-  });
-  if (error) console.warn("No se pudo guardar en Supabase.", error);
+  if (!supabase || navigator.onLine === false) return false;
+  try {
+    const { error } = await supabase.from(SUPABASE_TABLE).upsert({
+      id: SUPABASE_ROW_ID,
+      data: nextState,
+      updated_at: new Date().toISOString()
+    });
+    if (error) {
+      console.warn("No se pudo guardar en Supabase.", error);
+      return false;
+    }
+    setPendingSync(false);
+    return true;
+  } catch (error) {
+    console.warn("No se pudo guardar en Supabase.", error);
+    return false;
+  }
+}
+
+async function flushPendingSync() {
+  if (syncInProgress || !hasPendingSync()) return;
+  const pendingState = localState();
+  if (!pendingState) {
+    setPendingSync(false);
+    return;
+  }
+
+  syncInProgress = true;
+  try {
+    const synced = await saveStateToSupabase(pendingState);
+    if (!synced) setPendingSync(true);
+  } finally {
+    syncInProgress = false;
+  }
 }
 
 function saveState() {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveLocalState(state);
+  setPendingSync(true);
   window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => saveStateToSupabase(state), 250);
+  saveTimer = window.setTimeout(flushPendingSync, 250);
+}
+
+function bindConnectivityEvents() {
+  window.addEventListener("online", flushPendingSync);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) flushPendingSync();
+  });
+  window.setInterval(flushPendingSync, 30000);
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (!["http:", "https:"].includes(window.location.protocol)) return;
+  if (process.env.NODE_ENV !== "production") {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => registrations.forEach((registration) => registration.unregister()))
+      .catch(() => {});
+    if ("caches" in window) {
+      caches.keys()
+        .then((keys) => Promise.all(keys
+          .filter((key) => key.startsWith("bicifer-remitos-offline"))
+          .map((key) => caches.delete(key))))
+        .catch(() => {});
+    }
+    return;
+  }
+  navigator.serviceWorker.register("/sw.js").catch((error) => {
+    console.warn("No se pudo registrar el modo offline.", error);
+  });
 }
 
 function uid(prefix) {
@@ -107,12 +190,119 @@ function money(value) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 0
   }).format(Number(value || 0));
 }
 
 function numberValue(value) {
   return Number(String(value || "0").replace(",", ".")) || 0;
+}
+
+function integerValue(value) {
+  return Math.max(0, Math.round(numberValue(value)));
+}
+
+function priceValue(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw === "-") return null;
+  const cleaned = raw.replace(/[^\d,.-]/g, "");
+  if (!cleaned || cleaned === "-") return null;
+  let normalized = cleaned;
+  if (cleaned.includes(",")) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    normalized = cleaned.replace(/\./g, "");
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : null;
+}
+
+function normalizeHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function findColumn(headers, names) {
+  return headers.findIndex((header) => names.includes(normalizeHeader(header)));
+}
+
+function normalizeCode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function parseProductsFromRows(rows) {
+  const headerRowIndex = rows.findIndex((row) => {
+    const headers = row.map(normalizeHeader);
+    return headers.includes("codigo") && headers.includes("precio") &&
+      (headers.includes("producto") || headers.includes("descripcion"));
+  });
+
+  if (headerRowIndex < 0) {
+    return {
+      products: [],
+      issues: [],
+      error: "El Excel debe tener encabezados: codigo, producto, precio"
+    };
+  }
+
+  const headers = rows[headerRowIndex] || [];
+  const codeIndex = findColumn(headers, ["codigo", "code"]);
+  const descriptionIndex = findColumn(headers, ["producto", "descripcion", "description"]);
+  const priceIndex = findColumn(headers, ["precio", "price"]);
+
+  if (codeIndex < 0 || descriptionIndex < 0 || priceIndex < 0) {
+    return {
+      products: [],
+      issues: [],
+      error: "El Excel debe tener encabezados: codigo, producto, precio"
+    };
+  }
+
+  const products = [];
+  const issues = [];
+  rows.slice(headerRowIndex + 1).forEach((row, index) => {
+    const rowNumber = headerRowIndex + index + 2;
+    const code = normalizeCode(row[codeIndex]);
+    const description = String(row[descriptionIndex] || "").trim();
+    const rawPrice = String(row[priceIndex] ?? "").trim();
+    const price = priceValue(rawPrice);
+
+    if (!code && !description && !rawPrice) return;
+    if (!code || !description) {
+      issues.push({
+        rowNumber,
+        code,
+        description,
+        price: rawPrice,
+        problem: "Falta codigo o producto. No se puede importar esta fila."
+      });
+      return;
+    }
+
+    if (price === null) {
+      issues.push({
+        rowNumber,
+        code,
+        description,
+        price: rawPrice || "-",
+        problem: "Precio faltante o invalido. Se importara con precio 0."
+      });
+    }
+
+    products.push({ code, description, price: price ?? 0 });
+  });
+
+  const byCode = new Map();
+  products.forEach((product) => byCode.set(normalizeCode(product.code), product));
+
+  return {
+    products: Array.from(byCode.values()),
+    issues,
+    error: ""
+  };
 }
 
 function escapeHtml(value) {
@@ -308,10 +498,12 @@ function renderSettings() {
 function addSaleLine(item = {}) {
   const line = document.createElement("div");
   line.className = "line-item";
+  const qty = integerValue(item.qty || 1) || 1;
+  const price = item.price === "" || item.price === undefined || item.price === null ? "" : integerValue(item.price);
   line.innerHTML = `
     <label>Detalle<input class="item-name" type="text" value="${escapeHtml(item.name || "")}" placeholder="Articulo" /></label>
-    <label>Cant.<input class="item-qty" inputmode="decimal" min="0" step="0.01" type="number" value="${item.qty || 1}" /></label>
-    <label>Precio<input class="item-price" inputmode="decimal" min="0" step="0.01" type="number" value="${item.price || ""}" /></label>
+    <label>Cant.<input class="item-qty" inputmode="numeric" min="1" step="1" type="number" value="${qty}" /></label>
+    <label>Precio<input class="item-price" inputmode="numeric" min="0" step="1" type="number" value="${price}" /></label>
     <button class="remove-line" type="button">X</button>
   `;
   $("#saleLines").appendChild(line);
@@ -319,10 +511,11 @@ function addSaleLine(item = {}) {
 }
 
 function addProductToSale(product) {
+  const price = priceValue(product.price) ?? 0;
   addSaleLine({
     name: `${product.code} - ${product.description}`,
     qty: 1,
-    price: product.price
+    price
   });
 }
 
@@ -330,8 +523,8 @@ function getSaleItems() {
   return $$(".line-item")
     .map((line) => ({
       name: line.querySelector(".item-name").value.trim(),
-      qty: numberValue(line.querySelector(".item-qty").value),
-      price: numberValue(line.querySelector(".item-price").value)
+      qty: integerValue(line.querySelector(".item-qty").value),
+      price: integerValue(line.querySelector(".item-price").value)
     }))
     .filter((item) => item.name && item.qty > 0);
 }
@@ -469,7 +662,7 @@ function resetSaleForm() {
   $("#saleNotes").value = "";
   $("#saleCondition").value = "cuenta";
   $("#saleLines").innerHTML = "";
-  addSaleLine();
+  updateSaleTotal();
 }
 
 function loadReceiptForEdit(receiptId) {
@@ -982,31 +1175,102 @@ async function readExcelRows(file) {
   return parseSheetRows(files[sheetName], parseSharedStrings(files["xl/sharedStrings.xml"]));
 }
 
-function importProductsFromRows(rows) {
-  const headers = rows.shift()?.map((header) => header.toLowerCase().trim()) || [];
-  const codeIndex = headers.indexOf("codigo");
-  const descriptionIndex = headers.indexOf("descripcion");
-  const priceIndex = headers.indexOf("precio");
+function renderProductImportPreview() {
+  const preview = $("#productImportPreview");
+  if (!preview) return;
 
-  if (codeIndex < 0 || descriptionIndex < 0 || priceIndex < 0) {
-    alert("El CSV debe tener encabezados: codigo, descripcion, precio");
+  if (!pendingProductImport) {
+    preview.classList.add("hidden");
+    $("#productImportSummary").textContent = "";
+    $("#productImportStats").textContent = "";
+    $("#productImportSample").innerHTML = "";
+    $("#productImportWarnings").textContent = "";
     return;
   }
 
-  const imported = rows
-    .map((row) => ({
-      code: row[codeIndex],
-      description: row[descriptionIndex],
-      price: numberValue(row[priceIndex])
-    }))
-    .filter((product) => product.code && product.description && product.price >= 0);
+  const imported = pendingProductImport.products;
+  const issues = pendingProductImport.issues;
+  const existingCodes = new Set(state.products.map((product) => product.code));
+  const updatedCount = imported.filter((product) => existingCodes.has(product.code)).length;
+  const newCount = imported.length - updatedCount;
+  const sample = imported.slice(0, 8);
+  const issueSample = issues.slice(0, 8);
 
-  const byCode = new Map(state.products.map((product) => [product.code, product]));
-  imported.forEach((product) => byCode.set(product.code, product));
+  $("#productImportSummary").textContent = `${imported.length} validos`;
+  $("#productImportStats").textContent = `${newCount} nuevos, ${updatedCount} actualizan existentes, ${issues.length} con observaciones.`;
+  $("#productImportSample").innerHTML = sample.length
+    ? sample.map((product) => `
+        <div class="import-row">
+          <span>${escapeHtml(product.code)}</span>
+          <span>${escapeHtml(product.description)}</span>
+          <strong>${money(product.price)}</strong>
+        </div>
+      `).join("")
+    : `<p class="muted">No hay productos validos para importar.</p>`;
+  $("#productImportWarnings").innerHTML = issueSample.length
+    ? `
+        <strong>Observaciones</strong>
+        ${issueSample.map((item) => `
+          <span>Fila ${item.rowNumber}: ${escapeHtml(item.code || "sin codigo")} - ${escapeHtml(item.description || "sin producto")} (${escapeHtml(item.problem)})</span>
+        `).join("")}
+        ${issues.length > issueSample.length ? `<span>Y ${issues.length - issueSample.length} observaciones mas.</span>` : ""}
+      `
+    : "No se detectaron filas con observaciones.";
+  preview.classList.remove("hidden");
+}
+
+function prepareProductImport(rows) {
+  const parsed = parseProductsFromRows(rows);
+  if (parsed.error) {
+    pendingProductImport = null;
+    renderProductImportPreview();
+    alert(parsed.error);
+    return;
+  }
+
+  pendingProductImport = parsed;
+  renderProductImportPreview();
+}
+
+function confirmProductImport() {
+  if (!pendingProductImport) return;
+  const imported = pendingProductImport.products;
+  if (!imported.length) {
+    alert("No hay productos validos para importar.");
+    return;
+  }
+
+  const byCode = new Map(state.products.map((product) => [normalizeCode(product.code), product]));
+  imported.forEach((product) => byCode.set(normalizeCode(product.code), product));
   state.products = Array.from(byCode.values());
+  const importedCount = imported.length;
+  const issueCount = pendingProductImport.issues.length;
+  pendingProductImport = null;
   saveState();
   render();
-  alert(`Productos importados: ${imported.length}`);
+  renderProductImportPreview();
+  alert(`Productos importados: ${importedCount}${issueCount ? `. Filas con observaciones: ${issueCount}` : ""}`);
+}
+
+function cancelProductImport() {
+  pendingProductImport = null;
+  renderProductImportPreview();
+}
+
+function findProductFromPickerValue(value) {
+  const term = String(value || "").trim();
+  if (!term) return null;
+
+  const codeFromOption = normalizeCode(term.split(" - ")[0]);
+  const exactCode = state.products.find((product) => normalizeCode(product.code) === codeFromOption);
+  if (exactCode) return exactCode;
+
+  const normalizedTerm = term.toLowerCase();
+  return state.products.find((product) =>
+    normalizeCode(product.code).toLowerCase() === normalizedTerm ||
+    String(product.description || "").toLowerCase() === normalizedTerm ||
+    `${product.code} ${product.description}`.toLowerCase().includes(normalizedTerm)
+  ) || null;
 }
 
 function exportData() {
@@ -1041,16 +1305,24 @@ function bindEvents() {
   $$(".menu-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$(".back-home").forEach((button) => button.addEventListener("click", () => switchView("inicio")));
 
-  $("#addLine").addEventListener("click", () => addSaleLine());
-  $("#saleLines").addEventListener("input", updateSaleTotal);
-  $("#saleLines").addEventListener("click", (event) => {
+  on("#addLine", "click", () => addSaleLine());
+  on("#saleLines", "input", updateSaleTotal);
+  on("#saleLines", "change", (event) => {
+    if (event.target.classList.contains("item-qty")) {
+      event.target.value = integerValue(event.target.value) || 1;
+    }
+    if (event.target.classList.contains("item-price")) {
+      event.target.value = integerValue(event.target.value);
+    }
+    updateSaleTotal();
+  });
+  on("#saleLines", "click", (event) => {
     if (!event.target.classList.contains("remove-line")) return;
     event.target.closest(".line-item").remove();
-    if (!getSaleItems().length && !$(".line-item")) addSaleLine();
     updateSaleTotal();
   });
 
-  $("#quickAddCustomer").addEventListener("click", () => {
+  on("#quickAddCustomer", "click", () => {
     const name = $("#quickCustomerName").value.trim();
     if (!name) return;
     const customer = saveCustomer({ name });
@@ -1058,7 +1330,7 @@ function bindEvents() {
     $("#quickCustomerName").value = "";
   });
 
-  $("#customerForm").addEventListener("submit", (event) => {
+  on("#customerForm", "submit", (event) => {
     event.preventDefault();
     saveCustomer({
       name: $("#customerName").value,
@@ -1069,26 +1341,25 @@ function bindEvents() {
     $("#customerPhone").value = "549";
   });
 
-  $("#customersList").addEventListener("click", (event) => {
+  on("#customersList", "click", (event) => {
     const editId = event.target.dataset.editCustomer;
     const deleteId = event.target.dataset.deleteCustomer;
     if (editId) loadCustomerForEdit(editId);
     if (deleteId) deleteCustomer(deleteId);
   });
 
-  $("#saveSale").addEventListener("click", saveReceipt);
-  $("#accountCustomer").addEventListener("change", renderAccount);
-  $("#receiptSearch").addEventListener("input", renderReceipts);
-  $("#productSearch").addEventListener("input", renderProducts);
-  $("#productPicker").addEventListener("change", () => {
-    const code = $("#productPicker").value.split(" - ")[0];
-    const product = state.products.find((item) => item.code === code);
+  on("#saveSale", "click", saveReceipt);
+  on("#accountCustomer", "change", renderAccount);
+  on("#receiptSearch", "input", renderReceipts);
+  on("#productSearch", "input", renderProducts);
+  on("#productPicker", "change", () => {
+    const product = findProductFromPickerValue($("#productPicker").value);
     if (!product) return;
     addProductToSale(product);
     $("#productPicker").value = "";
   });
 
-  $("#savePayment").addEventListener("click", () => {
+  on("#savePayment", "click", () => {
     const customerId = $("#accountCustomer").value;
     const amount = numberValue($("#paymentAmount").value);
     if (!customerId || amount <= 0) {
@@ -1109,11 +1380,11 @@ function bindEvents() {
     $("#paymentNote").value = "";
     render();
   });
-  $("#shareAccountPdf").addEventListener("click", () => {
+  on("#shareAccountPdf", "click", () => {
     shareAccountPdf($("#accountCustomer").value);
   });
 
-  $("#settingsForm").addEventListener("submit", (event) => {
+  on("#settingsForm", "submit", (event) => {
     event.preventDefault();
     state.settings.bizName = $("#bizName").value.trim() || "BIKE STORE MDZ";
     state.settings.bizPhone = $("#bizPhone").value.trim();
@@ -1124,7 +1395,7 @@ function bindEvents() {
     alert("Ajustes guardados.");
   });
 
-  $("#receiptsList").addEventListener("click", (event) => {
+  on("#receiptsList", "click", (event) => {
     const openId = event.target.dataset.openReceipt;
     const editId = event.target.dataset.editReceipt;
     const deleteId = event.target.dataset.deleteReceipt;
@@ -1138,16 +1409,15 @@ function bindEvents() {
     }
   });
 
-  $("#closeReceipt").addEventListener("click", () => $("#receiptModal").classList.add("hidden"));
-  $("#editReceipt").addEventListener("click", () => currentReceipt && loadReceiptForEdit(currentReceipt.id));
-  $("#deleteReceipt").addEventListener("click", () => currentReceipt && deleteReceipt(currentReceipt.id));
-  $("#printReceipt").addEventListener("click", () => window.print());
-  $("#downloadPdf").addEventListener("click", () => currentReceipt && downloadReceiptPdf(currentReceipt));
-  $("#whatsappReceipt").addEventListener("click", () => currentReceipt && shareReceiptPdf(currentReceipt));
-  $("#backupBtn").addEventListener("click", exportData);
-  $("#exportData").addEventListener("click", exportData);
+  on("#closeReceipt", "click", () => $("#receiptModal")?.classList.add("hidden"));
+  on("#editReceipt", "click", () => currentReceipt && loadReceiptForEdit(currentReceipt.id));
+  on("#deleteReceipt", "click", () => currentReceipt && deleteReceipt(currentReceipt.id));
+  on("#printReceipt", "click", () => window.print());
+  on("#downloadPdf", "click", () => currentReceipt && downloadReceiptPdf(currentReceipt));
+  on("#whatsappReceipt", "click", () => currentReceipt && shareReceiptPdf(currentReceipt));
+  on("#exportData", "click", exportData);
 
-  $("#importData").addEventListener("change", async (event) => {
+  on("#importData", "change", async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const text = await file.text();
@@ -1164,22 +1434,26 @@ function bindEvents() {
     event.target.value = "";
   });
 
-  $("#importProducts").addEventListener("change", async (event) => {
+  on("#importProducts", "change", async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     try {
-      importProductsFromRows(await readExcelRows(file));
+      prepareProductImport(await readExcelRows(file));
     } catch (error) {
       alert(error.message || "No se pudo leer el archivo Excel.");
     }
     event.target.value = "";
   });
+  on("#confirmProductImport", "click", confirmProductImport);
+  on("#cancelProductImport", "click", cancelProductImport);
 
-  $("#clearProducts").addEventListener("click", () => {
+  on("#clearProducts", "click", () => {
     if (!confirm("¿Vaciar todos los productos cargados?")) return;
     state.products = [];
+    pendingProductImport = null;
     saveState();
     render();
+    renderProductImportPreview();
   });
 }
 
@@ -1187,7 +1461,6 @@ function init() {
   $("#saleDate").value = today();
   $("#paymentDate").value = today();
   if ($("#moduleMenuButton")) $(".mobile-module-menu")?.setAttribute("data-view", "venta");
-  addSaleLine();
   bindEvents();
   render();
 }
@@ -1195,6 +1468,8 @@ function init() {
 export async function initBiciferApp() {
   if (initialized) return;
   initialized = true;
+  registerServiceWorker();
+  bindConnectivityEvents();
   supabase = createSupabaseBrowserClient();
   state = await loadState();
   currentReceipt = null;

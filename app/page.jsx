@@ -9,7 +9,6 @@ const appMarkup = `
       <p class="eyebrow">Venta movil</p>
       <h1>BIKE STORE MDZ</h1>
     </div>
-    <button class="icon-button" id="backupBtn" type="button" title="Exportar respaldo">Respaldar</button>
   </header>
 
   <main class="app-shell">
@@ -87,13 +86,27 @@ const appMarkup = `
     <section class="view" id="productos">
       <div class="panel">
         <h2>Carga masiva de productos</h2>
-        <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, descripcion, precio.</p>
+        <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, producto, precio.</p>
+        <p class="muted">Si volves a importar la lista, los productos con el mismo codigo se actualizan y no se duplican.</p>
         <div class="sample-format">
-          <code>codigo | descripcion | precio</code>
+          <code>codigo | producto | precio</code>
           <code>FER001 | Martillo cabo madera | 4500</code>
           <code>BIC010 | Camara rodado 29 | 3800</code>
         </div>
         <label class="file-button full">Importar Excel<input id="importProducts" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" type="file" /></label>
+        <div id="productImportPreview" class="import-preview hidden">
+          <div class="section-title">
+            <h3>Revision de importacion</h3>
+            <span id="productImportSummary" class="pill"></span>
+          </div>
+          <p id="productImportStats" class="muted"></p>
+          <div id="productImportSample" class="import-sample"></div>
+          <div id="productImportWarnings" class="import-warnings muted"></div>
+          <div class="inline-actions">
+            <button id="cancelProductImport" type="button">Cancelar</button>
+            <button class="primary" id="confirmProductImport" type="button">Confirmar importacion</button>
+          </div>
+        </div>
       </div>
       <div class="panel">
         <div class="section-title">
@@ -174,6 +187,6 @@ export default function HomePage() {
     initBiciferApp();
   }, []);
 
-  return <div dangerouslySetInnerHTML={{ __html: appMarkup }} />;
+  return <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: appMarkup }} />;
 }
 

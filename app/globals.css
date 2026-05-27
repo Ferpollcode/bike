@@ -291,6 +291,10 @@ button:active {
   display: block;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .panel,
 .card {
   margin-bottom: 12px;
@@ -478,6 +482,57 @@ textarea {
 
 .sample-format code {
   white-space: nowrap;
+}
+
+.import-preview {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.import-preview h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.import-sample {
+  display: grid;
+  gap: 6px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.import-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.import-row span,
+.import-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.import-warnings {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.import-warnings strong {
+  color: var(--text);
 }
 
 .modal {
@@ -819,6 +874,10 @@ textarea {
 
   .line-item label:first-child {
     grid-column: 1 / -1;
+  }
+
+  .import-row {
+    grid-template-columns: 1fr;
   }
 
   .modal {

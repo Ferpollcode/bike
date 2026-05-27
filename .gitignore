@@ -2,6 +2,7 @@ node_modules/
 .next/
 out/
 
+.env
 .env*.local
 next-dev*.log
 npm-debug.log*
