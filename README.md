@@ -1,81 +1,80 @@
 # BiciFer Remitos
 
-Aplicacion local para celular hecha con HTML, CSS y JavaScript puro. No usa React, frameworks, base de datos externa ni internet para guardar datos.
+Aplicacion Next.js para gestionar remitos, clientes, productos y cuentas corrientes desde distintos dispositivos.
 
-## Estructura
+La app usa Supabase como almacenamiento compartido. Si Supabase no esta configurado o no responde, conserva un respaldo local en `localStorage`.
 
-```text
-bicifer-remitos/
-  index.html
-  assets/
-    css/
-      styles.css
-    js/
-      app.js
-  README.md
+## Requisitos
+
+- Node.js 24 o compatible con Next 16.
+- Un proyecto de Supabase.
+
+## Instalacion
+
+```bash
+npm install
 ```
 
-## Como usar
+## Configurar Supabase
 
-1. Abrir `index.html` con Chrome, Edge o el navegador del celular.
-2. Cargar clientes desde la seccion `Clientes` o agregarlos rapido desde `Venta`.
-3. Crear un remito, guardar y tocar `WhatsApp` para enviar el comprobante.
-4. Las ventas en `Cuenta corriente` aumentan el saldo del cliente.
-5. Los pagos se cargan desde `Cuentas` y bajan el saldo.
-6. Usar `Respaldar` o `Ajustes > Exportar` para guardar una copia JSON.
-7. En el remito, tocar `PDF` para descargar el comprobante en formato PDF.
+1. Crear un proyecto en Supabase.
+2. Abrir el SQL Editor y ejecutar el contenido de `supabase/schema.sql`.
 
-## Uso en iPhone
+3. Copiar `.env.example` a `.env.local`.
+4. Completar:
 
-Si el iPhone muestra la app sin colores ni formato, abrir `app-iphone.html`. Ese archivo trae el HTML, CSS y JavaScript todo junto, por eso funciona mejor cuando iOS no carga bien la carpeta `assets`.
-
-En iPhone, Chrome usa el mismo motor que Safari. Si se abre desde la app `Archivos`, puede aparecer como una vista previa llamada `index` y no cargar los estilos. En ese caso usar `app-iphone.html` o subir la carpeta completa a Drive/iCloud y abrir el archivo desde ahi.
-
-## Carga masiva de productos desde Excel
-
-La app importa productos desde un archivo Excel `.xlsx`.
-
-Formato requerido:
-
-```text
-codigo | descripcion              | precio
-FER001 | Martillo cabo madera      | 4500
-BIC010 | Camara rodado 29          | 3800
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
 ```
 
-Columnas:
+La tabla usada es `public.app_state`. Guarda el estado completo de la aplicacion en la fila `bicifer-remitos`.
 
-- `codigo`: identificador unico del producto. Si se importa otra vez el mismo codigo, se actualiza.
-- `descripcion`: nombre que se vera al cargar el remito.
-- `precio`: precio numerico, sin simbolo `$`.
+## Desarrollo
 
-Pasos en Excel:
-
-1. Crear una planilla con esas tres columnas exactas.
-2. Guardar como `Libro de Excel (*.xlsx)`.
-3. Entrar en la app a `Productos`.
-4. Tocar `Importar Excel` y seleccionar el archivo.
-
-Luego, en `Venta`, usar `Buscar producto cargado` para agregarlo rapido al remito.
-
-Importante: el formato viejo `.xls` binario no se lee en esta app local. Si tenes un `.xls`, abrilo en Excel y guardalo como `.xlsx`.
-
-## Datos
-
-Los clientes, productos, remitos y movimientos quedan guardados en el navegador del dispositivo mediante `localStorage`. Si se borra el historial o los datos del navegador, se pueden perder. Conviene exportar respaldo todos los dias de trabajo.
-
-## Ejecutar local
-
-No requiere instalacion. Se puede abrir directamente:
-
-```text
-C:\Users\Usuario\Desktop\bicifer-remitos\index.html
+```bash
+npm run dev
 ```
 
-Version recomendada para iPhone:
+Abrir:
 
 ```text
-C:\Users\Usuario\Desktop\bicifer-remitos\app-iphone.html
+http://localhost:3000
 ```
 
-Si se quiere compartir en red local, alcanza con servir esta carpeta con cualquier servidor estatico.
+## Produccion
+
+```bash
+npm run build
+npm run start
+```
+
+## Funciones principales
+
+- Crear, editar y borrar remitos.
+- Generar PDF del remito.
+- Compartir PDF por WhatsApp cuando el navegador lo permite.
+- Cargar, editar y borrar clientes.
+- Importar productos desde Excel `.xlsx`.
+- Manejar cuentas corrientes.
+- Registrar pagos.
+- Generar y compartir PDF de cuenta corriente.
+- Exportar e importar respaldo JSON.
+
+## Migrar datos anteriores
+
+La version anterior guardaba todo en el navegador. Para pasar datos a Supabase:
+
+1. Abrir la version anterior.
+2. Ir a `Ajustes > Exportar`.
+3. Abrir la nueva app Next.js.
+4. Ir a `Ajustes > Importar`.
+
+Al importar, la app guarda el respaldo en Supabase y queda disponible para los otros dispositivos.
+
+## Verificacion
+
+```bash
+npm run lint
+npm run build
+```
