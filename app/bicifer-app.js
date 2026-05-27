@@ -135,6 +135,7 @@ function switchView(viewId) {
   $$(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === viewId));
   $$(".menu-button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
+  if ($("#moduleMenu")) $("#moduleMenu").value = viewId;
   render();
 }
 
@@ -1006,6 +1007,7 @@ function exportData() {
 
 function bindEvents() {
   $$(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
+  if ($("#moduleMenu")) $("#moduleMenu").addEventListener("change", (event) => switchView(event.target.value));
   $$(".menu-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$(".back-home").forEach((button) => button.addEventListener("click", () => switchView("inicio")));
 

@@ -106,6 +106,10 @@ button:active {
   background: var(--bg);
 }
 
+.mobile-module-menu {
+  display: none;
+}
+
 .home-view.active {
   display: grid;
   gap: 22px;
@@ -668,7 +672,26 @@ textarea {
   }
 
   .tabs {
-    grid-template-columns: repeat(6, 92px);
+    display: none;
+  }
+
+  .mobile-module-menu {
+    position: sticky;
+    top: 65px;
+    z-index: 4;
+    display: grid;
+    gap: 6px;
+    margin: 0 0 12px;
+    padding: 8px 0 10px;
+    background: var(--bg);
+  }
+
+  .mobile-module-menu select {
+    min-height: 48px;
+    border-color: #b9c3cf;
+    background-color: #fff;
+    color: var(--text);
+    font-weight: 700;
   }
 
   .grid.two,
@@ -751,6 +774,10 @@ textarea {
   }
 
   .tabs {
+    top: 109px;
+  }
+
+  .mobile-module-menu {
     top: 109px;
   }
 
