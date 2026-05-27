@@ -684,14 +684,58 @@ textarea {
     margin: 0 0 12px;
     padding: 8px 0 10px;
     background: var(--bg);
+    color: #344054;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .mobile-module-menu select {
+    appearance: none;
     min-height: 48px;
-    border-color: #b9c3cf;
-    background-color: #fff;
-    color: var(--text);
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 44px 12px 14px;
+    color: #fff;
+    background-color: #2563eb;
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      calc(100% - 22px) 21px,
+      calc(100% - 16px) 21px;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    box-shadow: 0 8px 18px rgba(16, 24, 40, 0.18);
     font-weight: 700;
+  }
+
+  .mobile-module-menu[data-view="venta"] select {
+    background-color: #2563eb;
+  }
+
+  .mobile-module-menu[data-view="clientes"] select {
+    background-color: #16a34a;
+  }
+
+  .mobile-module-menu[data-view="productos"] select {
+    background-color: #0f766e;
+  }
+
+  .mobile-module-menu[data-view="cuentas"] select {
+    background-color: #d97706;
+  }
+
+  .mobile-module-menu[data-view="remitos"] select {
+    background-color: #db2777;
+  }
+
+  .mobile-module-menu[data-view="ajustes"] select {
+    background-color: #7c3aed;
+  }
+
+  .mobile-module-menu option {
+    color: var(--text);
+    background: #fff;
   }
 
   .grid.two,

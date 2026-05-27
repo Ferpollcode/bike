@@ -135,7 +135,10 @@ function switchView(viewId) {
   $$(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === viewId));
   $$(".menu-button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
-  if ($("#moduleMenu")) $("#moduleMenu").value = viewId;
+  if ($("#moduleMenu")) {
+    $("#moduleMenu").value = viewId;
+    $("#moduleMenu").closest(".mobile-module-menu")?.setAttribute("data-view", viewId);
+  }
   render();
 }
 
@@ -1156,6 +1159,7 @@ function bindEvents() {
 function init() {
   $("#saleDate").value = today();
   $("#paymentDate").value = today();
+  if ($("#moduleMenu")) $("#moduleMenu").closest(".mobile-module-menu")?.setAttribute("data-view", $("#moduleMenu").value);
   addSaleLine();
   bindEvents();
   render();
