@@ -730,6 +730,15 @@ textarea {
   text-align: center;
 }
 
+.danger-btn {
+  color: #fff;
+  background: var(--danger);
+}
+
+.danger-btn:active {
+  background: #9b1c10;
+}
+
 /* ── Analíticas ─────────────────────────────────── */
 
 .period-filters {

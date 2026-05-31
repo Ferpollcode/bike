@@ -127,9 +127,9 @@ const appMarkup = `
       <div class="panel">
         <div class="section-title">
           <h2>Productos</h2>
-          <button id="clearProducts" type="button">Vaciar</button>
+          <button id="clearProducts" type="button" class="danger-btn">Vaciar</button>
         </div>
-        <input id="productSearch" type="search" placeholder="Buscar producto" />
+        <input id="productSearch" type="search" placeholder="Buscar producto" style="margin-top: 10px" />
       </div>
       <div class="list" id="productsList"></div>
     </section>
