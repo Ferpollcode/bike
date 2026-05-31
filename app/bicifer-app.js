@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from "chart.js";
+Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
 const STORAGE_KEY = "bicifer-remitos-v1";
 const PENDING_SYNC_KEY = `${STORAGE_KEY}-pending-sync`;
@@ -28,6 +30,8 @@ let initialized = false;
 let saveTimer = null;
 let syncInProgress = false;
 let pendingProductImport = null;
+let analyticsChart = null;
+let analyticsPeriod = "mes";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -41,7 +45,8 @@ const moduleLabels = {
   productos: "Productos",
   cuentas: "Cuentas",
   remitos: "Remitos",
-  ajustes: "Ajustes"
+  ajustes: "Ajustes",
+  analiticas: "Analíticas"
 };
 
 function localState() {
@@ -350,6 +355,7 @@ function render() {
   renderAccount();
   renderReceipts();
   renderSettings();
+  renderAnalytics();
   if ($("#homeBusinessName")) $("#homeBusinessName").textContent = state.settings.bizName || "BIKE STORE MDZ";
   $("#nextReceiptNumber").textContent = `Nro ${receiptNumber()}`;
 }
@@ -1348,6 +1354,14 @@ function bindEvents() {
     if (deleteId) deleteCustomer(deleteId);
   });
 
+  on("#analiticas", "click", (event) => {
+    const btn = event.target.closest(".period-btn");
+    if (!btn) return;
+    analyticsPeriod = btn.dataset.period;
+    $$(".period-btn").forEach((b) => b.classList.toggle("active", b.dataset.period === analyticsPeriod));
+    renderAnalytics();
+  });
+
   on("#saveSale", "click", saveReceipt);
   on("#accountCustomer", "change", renderAccount);
   on("#receiptSearch", "input", renderReceipts);
@@ -1455,6 +1469,195 @@ function bindEvents() {
     render();
     renderProductImportPreview();
   });
+}
+
+function getPeriodRange(period) {
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  if (period === "mes") {
+    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    return { start, end: todayStr };
+  }
+  if (period === "30d") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 29);
+    return { start: d.toISOString().slice(0, 10), end: todayStr };
+  }
+  if (period === "anio") {
+    return { start: `${now.getFullYear()}-01-01`, end: todayStr };
+  }
+  return { start: "0000-01-01", end: "9999-12-31" };
+}
+
+function buildChartData(receipts, useMonths) {
+  const map = new Map();
+  receipts.forEach((r) => {
+    const key = useMonths ? r.date.slice(0, 7) : r.date;
+    map.set(key, (map.get(key) || 0) + r.total);
+  });
+  const sorted = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const labels = sorted.map(([key]) => {
+    const parts = key.split("-");
+    if (useMonths) return `${monthNames[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+    return `${parseInt(parts[2], 10)} ${monthNames[parseInt(parts[1], 10) - 1]}`;
+  });
+  const data = sorted.map(([, total]) => total);
+  return { labels, data };
+}
+
+function computeAnalytics(period) {
+  const { start, end } = getPeriodRange(period);
+  const receiptsInPeriod = state.receipts.filter((r) => r.date >= start && r.date <= end);
+  const ledgerInPeriod = state.ledger.filter((e) => e.date >= start && e.date <= end);
+
+  const totalVendido = receiptsInPeriod.reduce((sum, r) => sum + r.total, 0);
+  const cantidadRemitos = receiptsInPeriod.length;
+  const contadoTotal = receiptsInPeriod.filter((r) => r.condition === "contado").reduce((sum, r) => sum + r.total, 0);
+  const cuentaTotal = receiptsInPeriod.filter((r) => r.condition === "cuenta").reduce((sum, r) => sum + r.total, 0);
+  const pagosTotal = ledgerInPeriod.filter((e) => e.type === "payment").reduce((sum, e) => sum + e.amount, 0);
+  const ingresadoCaja = contadoTotal + pagosTotal;
+  const saldoDeudorTotal = state.customers.reduce((sum, c) => {
+    const b = getBalance(c.id);
+    return sum + (b < 0 ? -b : 0);
+  }, 0);
+
+  const totalCondicion = contadoTotal + cuentaTotal;
+  const pctContado = totalCondicion > 0 ? (contadoTotal / totalCondicion) * 100 : 0;
+  const pctCuenta = totalCondicion > 0 ? (cuentaTotal / totalCondicion) * 100 : 0;
+
+  const useMonths = period === "anio" || period === "todo";
+  const chartData = buildChartData(receiptsInPeriod, useMonths);
+
+  const prodByQty = new Map();
+  const prodByMonto = new Map();
+  receiptsInPeriod.forEach((r) => {
+    (r.items || []).forEach((item) => {
+      const name = item.name || "Sin nombre";
+      prodByQty.set(name, (prodByQty.get(name) || 0) + item.qty);
+      prodByMonto.set(name, (prodByMonto.get(name) || 0) + item.qty * item.price);
+    });
+  });
+  const topByQty = [...prodByQty.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const topByMonto = [...prodByMonto.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const clientByCompra = new Map();
+  receiptsInPeriod.forEach((r) => {
+    if (r.customerId) clientByCompra.set(r.customerId, (clientByCompra.get(r.customerId) || 0) + r.total);
+  });
+  const topByCompra = [...clientByCompra.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, total]) => {
+      const c = customerById(id);
+      return { name: c ? c.name : "(cliente eliminado)", total };
+    });
+
+  const topByDeuda = state.customers
+    .map((c) => ({ name: c.name, balance: getBalance(c.id) }))
+    .filter((c) => c.balance < 0)
+    .sort((a, b) => a.balance - b.balance)
+    .slice(0, 5)
+    .map((c) => ({ name: c.name, deuda: -c.balance }));
+
+  return {
+    totalVendido, cantidadRemitos, ingresadoCaja, saldoDeudorTotal,
+    contadoTotal, cuentaTotal, pctContado, pctCuenta,
+    chartData, useMonths, topByQty, topByMonto, topByCompra, topByDeuda
+  };
+}
+
+function renderRankList(id, items, getName, getValue, valueClass) {
+  const el = $(id);
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = `<p class="muted">Sin datos en este período.</p>`;
+    return;
+  }
+  el.innerHTML = items.map((item) => `
+    <div class="rank-row">
+      <span class="rank-name">${escapeHtml(getName(item))}</span>
+      <span class="rank-value ${valueClass}">${getValue(item)}</span>
+    </div>
+  `).join("");
+}
+
+function renderAnalytics() {
+  const section = document.getElementById("analiticas");
+  if (!section || !section.classList.contains("active")) return;
+
+  const a = computeAnalytics(analyticsPeriod);
+
+  const kpiTotalVendido = document.getElementById("kpiTotalVendido");
+  if (kpiTotalVendido) kpiTotalVendido.textContent = money(a.totalVendido);
+  const kpiRemitos = document.getElementById("kpiRemitos");
+  if (kpiRemitos) kpiRemitos.textContent = a.cantidadRemitos;
+  const kpiIngresado = document.getElementById("kpiIngresado");
+  if (kpiIngresado) kpiIngresado.textContent = money(a.ingresadoCaja);
+  const kpiSaldoDeudor = document.getElementById("kpiSaldoDeudor");
+  if (kpiSaldoDeudor) kpiSaldoDeudor.textContent = money(a.saldoDeudorTotal);
+
+  const barContado = document.getElementById("barContado");
+  const barContadoLabel = document.getElementById("barContadoLabel");
+  const barCuenta = document.getElementById("barCuenta");
+  const barCuentaLabel = document.getElementById("barCuentaLabel");
+  if (barContado) barContado.style.width = `${a.pctContado.toFixed(1)}%`;
+  if (barContadoLabel) barContadoLabel.textContent = `${Math.round(a.pctContado)}% · ${money(a.contadoTotal)}`;
+  if (barCuenta) barCuenta.style.width = `${a.pctCuenta.toFixed(1)}%`;
+  if (barCuentaLabel) barCuentaLabel.textContent = `${Math.round(a.pctCuenta)}% · ${money(a.cuentaTotal)}`;
+
+  const chartTitle = document.getElementById("chartTitle");
+  if (chartTitle) chartTitle.textContent = a.useMonths ? "Ventas por mes" : "Ventas por día";
+
+  const chartEmpty = document.getElementById("chartEmpty");
+  const chartCanvas = document.getElementById("analyticsChartCanvas");
+  if (chartCanvas) {
+    if (a.chartData.data.length === 0) {
+      chartCanvas.style.display = "none";
+      if (chartEmpty) chartEmpty.style.display = "";
+    } else {
+      chartCanvas.style.display = "";
+      if (chartEmpty) chartEmpty.style.display = "none";
+      if (analyticsChart) analyticsChart.destroy();
+      analyticsChart = new Chart(chartCanvas, {
+        type: "bar",
+        data: {
+          labels: a.chartData.labels,
+          datasets: [{
+            data: a.chartData.data,
+            backgroundColor: "#0f766e",
+            borderRadius: 4,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: (ctx) => money(ctx.parsed.y) }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: (v) => {
+                  if (v >= 1000000) return `$${(v / 1000000).toFixed(1)}M`;
+                  if (v >= 1000) return `$${Math.round(v / 1000)}k`;
+                  return `$${v}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  renderRankList("#topProductosCantidad", a.topByQty, ([name]) => name, ([, v]) => `${v} u.`, "amount-credit");
+  renderRankList("#topProductosMonto", a.topByMonto, ([name]) => name, ([, v]) => money(v), "rank-accent");
+  renderRankList("#topClientesCompra", a.topByCompra, (c) => c.name, (c) => money(c.total), "amount-credit");
+  renderRankList("#topClientesDeuda", a.topByDeuda, (c) => c.name, (c) => money(c.deuda), "amount-debit");
 }
 
 function init() {

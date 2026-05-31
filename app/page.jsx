@@ -24,6 +24,7 @@ const appMarkup = `
         <button data-module-option="cuentas" type="button">Cuentas</button>
         <button data-module-option="remitos" type="button">Remitos</button>
         <button data-module-option="ajustes" type="button">Ajustes</button>
+        <button data-module-option="analiticas" type="button">Analíticas</button>
       </div>
     </div>
 
@@ -34,6 +35,7 @@ const appMarkup = `
       <button class="tab" data-view="cuentas" type="button">Cuentas</button>
       <button class="tab" data-view="remitos" type="button">Remitos</button>
       <button class="tab" data-view="ajustes" type="button">Ajustes</button>
+      <button class="tab" data-view="analiticas" type="button">Analíticas</button>
     </nav>
 
     <section class="view active" id="venta">
@@ -143,6 +145,89 @@ const appMarkup = `
         <input id="receiptSearch" type="search" placeholder="Buscar por cliente o numero" />
       </div>
       <div class="list" id="receiptsList"></div>
+    </section>
+
+    <section class="view" id="analiticas">
+      <div class="panel">
+        <h2>Analíticas</h2>
+        <div class="period-filters">
+          <button class="period-btn active" data-period="mes" type="button">Este mes</button>
+          <button class="period-btn" data-period="30d" type="button">Últ. 30 días</button>
+          <button class="period-btn" data-period="anio" type="button">Este año</button>
+          <button class="period-btn" data-period="todo" type="button">Todo</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="panel kpi-card">
+          <div class="kpi-label">Total vendido</div>
+          <div class="kpi-value" id="kpiTotalVendido">$0</div>
+        </div>
+        <div class="panel kpi-card">
+          <div class="kpi-label">Remitos emitidos</div>
+          <div class="kpi-value" id="kpiRemitos">0</div>
+        </div>
+        <div class="panel kpi-card">
+          <div class="kpi-label">Ingresado en caja</div>
+          <div class="kpi-value" id="kpiIngresado">$0</div>
+          <div class="kpi-sub">contado + pagos cobrados</div>
+        </div>
+        <div class="panel kpi-card">
+          <div class="kpi-label">Saldo deudor total</div>
+          <div class="kpi-value kpi-danger" id="kpiSaldoDeudor">$0</div>
+          <div class="kpi-sub">todos los clientes</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Condición de venta</h2>
+        <div class="analytics-bar-row">
+          <div class="analytics-bar-label">
+            <span>Contado</span>
+            <span id="barContadoLabel" class="amount-credit">0%</span>
+          </div>
+          <div class="analytics-bar-track">
+            <div class="analytics-bar-fill analytics-bar-primary" id="barContado" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="analytics-bar-row">
+          <div class="analytics-bar-label">
+            <span>Cuenta corriente</span>
+            <span id="barCuentaLabel" class="amount-debit">0%</span>
+          </div>
+          <div class="analytics-bar-track">
+            <div class="analytics-bar-fill analytics-bar-danger" id="barCuenta" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 id="chartTitle">Ventas por día</h2>
+        <canvas id="analyticsChartCanvas"></canvas>
+        <p class="muted" id="chartEmpty" style="display:none;text-align:center;padding:16px 0">Sin ventas en este período.</p>
+      </div>
+
+      <div class="grid two">
+        <div class="panel">
+          <h2>Top por cantidad</h2>
+          <div id="topProductosCantidad"></div>
+        </div>
+        <div class="panel">
+          <h2>Top por monto</h2>
+          <div id="topProductosMonto"></div>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <div class="panel">
+          <h2>Más compraron</h2>
+          <div id="topClientesCompra"></div>
+        </div>
+        <div class="panel">
+          <h2>Mayor deuda</h2>
+          <div id="topClientesDeuda"></div>
+        </div>
+      </div>
     </section>
 
     <section class="view" id="ajustes">
