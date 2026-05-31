@@ -1562,7 +1562,9 @@ function bindEvents() {
   on("#cancelProductImport", "click", cancelProductImport);
 
   on("#clearProducts", "click", () => {
-    if (!confirm("¿Vaciar todos los productos cargados?")) return;
+    const count = state.products.length;
+    if (!count) return;
+    if (!confirm(`¿Vaciar la lista de productos?\n\nEsto borrará ${count} producto${count !== 1 ? "s" : ""} de forma permanente. Esta acción no se puede deshacer.`)) return;
     state.products = [];
     pendingProductImport = null;
     saveState();
