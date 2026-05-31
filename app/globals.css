@@ -69,6 +69,19 @@ button:active {
   box-shadow: var(--shadow);
 }
 
+.app-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-bike-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 21px;

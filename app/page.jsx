@@ -5,9 +5,21 @@ import { initBiciferApp } from "./bicifer-app";
 
 const appMarkup = `
   <header class="app-header">
-    <div>
-      <p class="eyebrow">Venta movil</p>
-      <h1>BIKE STORE MDZ</h1>
+    <div class="app-header-brand">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="header-bike-icon" aria-hidden="true">
+        <circle cx="6" cy="17" r="4"/>
+        <circle cx="18" cy="17" r="4"/>
+        <path d="M6 17 L12 17 L12 10 L6 17"/>
+        <line x1="12" y1="17" x2="18" y2="13"/>
+        <line x1="12" y1="10" x2="18" y2="13"/>
+        <line x1="10.5" y1="10" x2="13.5" y2="10"/>
+        <path d="M18 13 L16.5 11.2 M18 13 L19.5 11.2"/>
+        <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+      <div>
+        <p class="eyebrow">Venta movil</p>
+        <h1>BIKE STORE MDZ</h1>
+      </div>
     </div>
   </header>
 
