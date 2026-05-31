@@ -32,6 +32,7 @@ let syncInProgress = false;
 let pendingProductImport = null;
 let analyticsChart = null;
 let analyticsPeriod = "mes";
+let editingProductCode = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -238,6 +239,10 @@ function normalizeCode(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function normalizeDesc(value) {
+  return String(value || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
 function parseProductsFromRows(rows) {
   const headerRowIndex = rows.findIndex((row) => {
     const headers = row.map(normalizeHeader);
@@ -423,6 +428,10 @@ function renderProducts() {
               <strong>${money(product.price)}</strong>
             </div>
             <p class="muted">Codigo: ${escapeHtml(product.code)}</p>
+            <div class="card-actions">
+              <button type="button" data-edit-product="${escapeHtml(product.code)}">Editar</button>
+              <button type="button" data-delete-product="${escapeHtml(product.code)}">Borrar</button>
+            </div>
           </article>
         `)
         .join("")
@@ -1196,14 +1205,21 @@ function renderProductImportPreview() {
 
   const imported = pendingProductImport.products;
   const issues = pendingProductImport.issues;
-  const existingCodes = new Set(state.products.map((product) => product.code));
-  const updatedCount = imported.filter((product) => existingCodes.has(product.code)).length;
+  const existingCodes = new Set(state.products.map((product) => normalizeCode(product.code)));
+  const updatedCount = imported.filter((product) => existingCodes.has(normalizeCode(product.code))).length;
   const newCount = imported.length - updatedCount;
   const sample = imported.slice(0, 8);
   const issueSample = issues.slice(0, 8);
 
+  const existingByDesc = new Map(state.products.map((p) => [normalizeDesc(p.description), p]));
+  const nameConflicts = imported.filter((p) => {
+    const existing = existingByDesc.get(normalizeDesc(p.description));
+    return existing && normalizeCode(existing.code) !== normalizeCode(p.code);
+  });
+
   $("#productImportSummary").textContent = `${imported.length} validos`;
-  $("#productImportStats").textContent = `${newCount} nuevos, ${updatedCount} actualizan existentes, ${issues.length} con observaciones.`;
+  const conflictNote = nameConflicts.length ? `, ${nameConflicts.length} con nombre duplicado` : "";
+  $("#productImportStats").textContent = `${newCount} nuevos, ${updatedCount} actualizan existentes${conflictNote}, ${issues.length} con observaciones.`;
   $("#productImportSample").innerHTML = sample.length
     ? sample.map((product) => `
         <div class="import-row">
@@ -1213,15 +1229,24 @@ function renderProductImportPreview() {
         </div>
       `).join("")
     : `<p class="muted">No hay productos validos para importar.</p>`;
-  $("#productImportWarnings").innerHTML = issueSample.length
-    ? `
-        <strong>Observaciones</strong>
-        ${issueSample.map((item) => `
-          <span>Fila ${item.rowNumber}: ${escapeHtml(item.code || "sin codigo")} - ${escapeHtml(item.description || "sin producto")} (${escapeHtml(item.problem)})</span>
-        `).join("")}
-        ${issues.length > issueSample.length ? `<span>Y ${issues.length - issueSample.length} observaciones mas.</span>` : ""}
-      `
+
+  const conflictHtml = nameConflicts.length
+    ? `<strong style="color:var(--danger)">Nombres duplicados (distinto codigo)</strong>
+       ${nameConflicts.slice(0, 5).map((p) => {
+         const existing = existingByDesc.get(normalizeDesc(p.description));
+         return `<span>⚠ "${escapeHtml(p.description)}" — en el Excel: ${escapeHtml(p.code)}, ya existe como: ${escapeHtml(existing.code)}</span>`;
+       }).join("")}
+       ${nameConflicts.length > 5 ? `<span>Y ${nameConflicts.length - 5} conflictos mas.</span>` : ""}`
+    : "";
+  const issueHtml = issueSample.length
+    ? `<strong>Observaciones</strong>
+       ${issueSample.map((item) => `
+         <span>Fila ${item.rowNumber}: ${escapeHtml(item.code || "sin codigo")} - ${escapeHtml(item.description || "sin producto")} (${escapeHtml(item.problem)})</span>
+       `).join("")}
+       ${issues.length > issueSample.length ? `<span>Y ${issues.length - issueSample.length} observaciones mas.</span>` : ""}`
     : "No se detectaron filas con observaciones.";
+
+  $("#productImportWarnings").innerHTML = [conflictHtml, issueHtml].filter(Boolean).join("<br>");
   preview.classList.remove("hidden");
 }
 
@@ -1246,6 +1271,22 @@ function confirmProductImport() {
     return;
   }
 
+  const existingByDesc = new Map(state.products.map((p) => [normalizeDesc(p.description), p]));
+  const nameConflicts = imported.filter((p) => {
+    const existing = existingByDesc.get(normalizeDesc(p.description));
+    return existing && normalizeCode(existing.code) !== normalizeCode(p.code);
+  });
+
+  if (nameConflicts.length > 0) {
+    const lines = nameConflicts.slice(0, 5).map((p) => {
+      const existing = existingByDesc.get(normalizeDesc(p.description));
+      return `• "${p.description}"\n  Excel: ${p.code} | Existente: ${existing.code}`;
+    });
+    const more = nameConflicts.length > 5 ? `\n...y ${nameConflicts.length - 5} mas.` : "";
+    const msg = `Hay ${nameConflicts.length} producto(s) con un nombre que ya existe con otro codigo:\n\n${lines.join("\n\n")}${more}\n\n¿Importar igual y mantener ambos registros?`;
+    if (!confirm(msg)) return;
+  }
+
   const byCode = new Map(state.products.map((product) => [normalizeCode(product.code), product]));
   imported.forEach((product) => byCode.set(normalizeCode(product.code), product));
   state.products = Array.from(byCode.values());
@@ -1261,6 +1302,53 @@ function confirmProductImport() {
 function cancelProductImport() {
   pendingProductImport = null;
   renderProductImportPreview();
+}
+
+function loadProductForEdit(code) {
+  const product = state.products.find((p) => normalizeCode(p.code) === normalizeCode(code));
+  if (!product) return;
+  editingProductCode = product.code;
+  $("#editProductCode").value = product.code;
+  $("#editProductDescription").value = product.description;
+  $("#editProductPrice").value = product.price;
+  $("#productEditPanel").classList.remove("hidden");
+  $("#productEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function saveProductEdit(event) {
+  event.preventDefault();
+  const newCode = normalizeCode($("#editProductCode").value);
+  const newDesc = $("#editProductDescription").value.trim();
+  const newPrice = integerValue($("#editProductPrice").value);
+  if (!newCode || !newDesc) {
+    alert("El codigo y la descripcion son obligatorios.");
+    return;
+  }
+  const idx = state.products.findIndex((p) => normalizeCode(p.code) === normalizeCode(editingProductCode));
+  if (idx < 0) return;
+  const codeChanged = newCode !== normalizeCode(editingProductCode);
+  if (codeChanged && state.products.some((p, i) => i !== idx && normalizeCode(p.code) === newCode)) {
+    alert(`Ya existe un producto con el codigo ${newCode}.`);
+    return;
+  }
+  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice };
+  editingProductCode = null;
+  $("#productEditPanel").classList.add("hidden");
+  saveState();
+  render();
+}
+
+function deleteProduct(code) {
+  const product = state.products.find((p) => normalizeCode(p.code) === normalizeCode(code));
+  if (!product) return;
+  if (!confirm(`¿Borrar "${product.description}"?`)) return;
+  state.products = state.products.filter((p) => normalizeCode(p.code) !== normalizeCode(code));
+  if (editingProductCode && normalizeCode(editingProductCode) === normalizeCode(code)) {
+    editingProductCode = null;
+    $("#productEditPanel").classList.add("hidden");
+  }
+  saveState();
+  render();
 }
 
 function findProductFromPickerValue(value) {
@@ -1360,6 +1448,18 @@ function bindEvents() {
     analyticsPeriod = btn.dataset.period;
     $$(".period-btn").forEach((b) => b.classList.toggle("active", b.dataset.period === analyticsPeriod));
     renderAnalytics();
+  });
+
+  on("#productsList", "click", (event) => {
+    const editCode = event.target.dataset.editProduct;
+    const deleteCode = event.target.dataset.deleteProduct;
+    if (editCode) loadProductForEdit(editCode);
+    if (deleteCode) deleteProduct(deleteCode);
+  });
+  on("#productEditForm", "submit", saveProductEdit);
+  on("#cancelProductEdit", "click", () => {
+    editingProductCode = null;
+    $("#productEditPanel").classList.add("hidden");
   });
 
   on("#saveSale", "click", saveReceipt);
@@ -1678,6 +1778,7 @@ export async function initBiciferApp() {
   currentReceipt = null;
   editingReceiptId = null;
   editingCustomerId = null;
+  editingProductCode = null;
   init();
 }
 

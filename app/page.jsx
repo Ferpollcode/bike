@@ -89,7 +89,7 @@ const appMarkup = `
       <div class="panel">
         <h2>Carga masiva de productos</h2>
         <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, producto, precio.</p>
-        <p class="muted">Si volves a importar la lista, los productos con el mismo codigo se actualizan y no se duplican.</p>
+        <p class="muted">Si volves a importar la lista, los productos con el mismo codigo se actualizan. Si un nombre ya existe con otro codigo, se avisa antes de confirmar.</p>
         <div class="sample-format">
           <code>codigo | producto | precio</code>
           <code>FER001 | Martillo cabo madera | 4500</code>
@@ -109,6 +109,20 @@ const appMarkup = `
             <button class="primary" id="confirmProductImport" type="button">Confirmar importacion</button>
           </div>
         </div>
+      </div>
+      <div class="panel hidden" id="productEditPanel">
+        <div class="section-title">
+          <h2>Editar producto</h2>
+          <button type="button" id="cancelProductEdit">Cancelar</button>
+        </div>
+        <form id="productEditForm">
+          <div class="grid two">
+            <label>Código<input id="editProductCode" type="text" /></label>
+            <label>Precio<input id="editProductPrice" inputmode="numeric" min="0" step="1" type="number" /></label>
+          </div>
+          <label>Descripción<input id="editProductDescription" type="text" /></label>
+          <button class="primary full" type="submit">Guardar cambios</button>
+        </form>
       </div>
       <div class="panel">
         <div class="section-title">
