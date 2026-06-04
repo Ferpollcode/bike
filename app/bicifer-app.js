@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from "chart.js";
+import { loadSession, saveSession, clearSession, tryLogin, isOwner, isCustomer } from "./auth";
+import {
+  getCart, clearCart, addToCart, removeFromCart, updateCartQty,
+  cartTotal, cartItemCount, renderCatalogGrid, renderCartItems
+} from "./catalog";
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
 const STORAGE_KEY = "bicifer-remitos-v1";
@@ -13,7 +18,9 @@ const defaultState = {
     bizPhone: "",
     bizAddress: "",
     bizFooter: "Gracias por su compra.",
-    nextNumber: 1
+    nextNumber: 1,
+    ownerUsername: "",
+    ownerPassword: ""
   },
   customers: [],
   products: [],
@@ -33,6 +40,7 @@ let pendingProductImport = null;
 let analyticsChart = null;
 let analyticsPeriod = "mes";
 let editingProductCode = null;
+let session = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -47,7 +55,8 @@ const moduleLabels = {
   cuentas: "Cuentas",
   remitos: "Comprobantes",
   ajustes: "Ajustes",
-  analiticas: "Analíticas"
+  analiticas: "Analíticas",
+  catalogo: "Catálogo"
 };
 
 function localState() {
@@ -503,6 +512,8 @@ function renderSettings() {
   $("#bizPhone").value = state.settings.bizPhone || "";
   $("#bizAddress").value = state.settings.bizAddress || "";
   $("#bizFooter").value = state.settings.bizFooter || "";
+  if ($("#ownerUsername")) $("#ownerUsername").value = state.settings.ownerUsername || "";
+  if ($("#ownerPassword")) $("#ownerPassword").value = state.settings.ownerPassword || "";
 }
 
 function addSaleLine(item = {}, prepend = false) {
@@ -551,7 +562,7 @@ function updateSaleTotal() {
   $("#saleTotal").textContent = money(saleTotal());
 }
 
-function saveCustomer({ name, phone = "", address = "" }) {
+function saveCustomer({ name, phone = "", address = "", username = "", password = "" }) {
   if (editingCustomerId) {
     const existing = customerById(editingCustomerId);
     if (!existing) {
@@ -562,6 +573,8 @@ function saveCustomer({ name, phone = "", address = "" }) {
     existing.name = name.trim();
     existing.phone = phone.trim();
     existing.address = address.trim();
+    existing.username = username.trim();
+    existing.password = password.trim();
     editingCustomerId = null;
     $("#customerForm button[type='submit']").textContent = "Guardar cliente";
     saveState();
@@ -574,6 +587,8 @@ function saveCustomer({ name, phone = "", address = "" }) {
     name: name.trim(),
     phone: phone.trim(),
     address: address.trim(),
+    username: username.trim(),
+    password: password.trim(),
     createdAt: Date.now()
   };
   state.customers.push(customer);
@@ -590,6 +605,8 @@ function loadCustomerForEdit(customerId) {
   $("#customerName").value = customer.name;
   $("#customerPhone").value = customer.phone || "549";
   $("#customerAddress").value = customer.address || "";
+  if ($("#customerUsername")) $("#customerUsername").value = customer.username || "";
+  if ($("#customerPassword")) $("#customerPassword").value = customer.password || "";
   $("#customerForm button[type='submit']").textContent = "Guardar cambios";
 }
 
