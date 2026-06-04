@@ -1634,6 +1634,7 @@ function bindEvents() {
     render();
     renderProductImportPreview();
   });
+  bindCatalogEvents();
 }
 
 function getPeriodRange(period) {
@@ -1862,6 +1863,120 @@ function renderCartPanels() {
     badge.textContent = count;
     badge.classList.toggle("hidden", !hasItems);
   }
+}
+
+function buildAndSaveReceipt({ customerId, date, condition, items }) {
+  const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const receipt = {
+    id: uid("rem"),
+    number: receiptNumber(),
+    customerId,
+    date: date || today(),
+    condition,
+    notes: "",
+    items,
+    total,
+    createdAt: Date.now()
+  };
+  state.receipts.push(receipt);
+  if (condition === "cuenta") {
+    state.ledger.push({
+      id: uid("mov"),
+      customerId,
+      type: "sale",
+      amount: total,
+      date: receipt.date,
+      note: `Comprobante ${receipt.number}`,
+      receiptId: receipt.id,
+      createdAt: Date.now()
+    });
+  }
+  state.settings.nextNumber += 1;
+  saveState();
+  render();
+  return receipt;
+}
+
+function bindCatalogEvents() {
+  on("#catalogSearch", "input", renderCatalog);
+
+  on("#catalogGrid", "click", (e) => {
+    const addBtn = e.target.closest("[data-add-to-cart]");
+    const decBtn = e.target.closest("[data-qty-dec]");
+    const incBtn = e.target.closest("[data-qty-inc]");
+
+    if (decBtn) {
+      const input = $("#catalogGrid").querySelector(`[data-qty-input="${decBtn.dataset.qtyDec}"]`);
+      if (input) input.value = Math.max(1, parseInt(input.value || "1", 10) - 1);
+      return;
+    }
+    if (incBtn) {
+      const input = $("#catalogGrid").querySelector(`[data-qty-input="${incBtn.dataset.qtyInc}"]`);
+      if (input) input.value = parseInt(input.value || "1", 10) + 1;
+      return;
+    }
+    if (addBtn) {
+      const code = addBtn.dataset.addToCart;
+      const product = state.products.find((p) => p.code === code);
+      if (!product) return;
+      const qtyInput = $("#catalogGrid").querySelector(`[data-qty-input="${code}"]`);
+      const qty = Math.max(1, parseInt(qtyInput?.value || "1", 10));
+      addToCart(product, qty);
+      if (qtyInput) qtyInput.value = 1;
+      renderCartPanels();
+    }
+  });
+
+  const handleRemoveFromCart = (e) => {
+    const btn = e.target.closest("[data-remove-cart]");
+    if (!btn) return;
+    removeFromCart(btn.dataset.removeCart);
+    renderCartPanels();
+  };
+
+  on("#cartItems", "click", handleRemoveFromCart);
+  on("#cartItemsMobile", "click", handleRemoveFromCart);
+
+  on("#cartFloatingBtn", "click", () => {
+    $("#cartBottomSheet")?.classList.toggle("hidden");
+  });
+
+  const openCheckout = () => {
+    const modal = $("#checkoutModal");
+    if (!modal) return;
+    $("#checkoutDate").value = today();
+    if (isCustomer(session)) {
+      $("#checkoutCustomer").value = session.customerId;
+    }
+    modal.classList.remove("hidden");
+  };
+
+  on("#checkoutBtn", "click", openCheckout);
+  on("#checkoutBtnMobile", "click", openCheckout);
+
+  on("#closeCheckoutModal", "click", () => {
+    $("#checkoutModal")?.classList.add("hidden");
+  });
+
+  on("#confirmCheckout", "click", () => {
+    const customerId = $("#checkoutCustomer").value;
+    const date = $("#checkoutDate").value;
+    const condition = $("#checkoutCondition").value;
+    const items = getCart().map((item) => ({
+      name: `${item.code} - ${item.name}`,
+      qty: item.qty,
+      price: item.price
+    }));
+
+    if (!customerId) { alert("Seleccioná un cliente."); return; }
+    if (!items.length) { alert("El carrito está vacío."); return; }
+
+    const receipt = buildAndSaveReceipt({ customerId, date, condition, items });
+    clearCart();
+    renderCartPanels();
+    $("#checkoutModal")?.classList.add("hidden");
+    openReceipt(receipt.id);
+  });
 }
 
 function init() {
