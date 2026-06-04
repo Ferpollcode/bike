@@ -19,8 +19,8 @@ const defaultState = {
     bizAddress: "",
     bizFooter: "Gracias por su compra.",
     nextNumber: 1,
-    ownerUsername: "",
-    ownerPassword: ""
+    ownerUsername: "pipa",
+    ownerPassword: "Pipa54321"
   },
   customers: [],
   products: [],
