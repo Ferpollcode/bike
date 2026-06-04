@@ -4,7 +4,30 @@ import { useEffect } from "react";
 import { initBiciferApp } from "./bicifer-app";
 
 const appMarkup = `
-  <header class="app-header">
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="48" height="48" aria-hidden="true">
+          <circle cx="6" cy="17" r="4"/><circle cx="18" cy="17" r="4"/>
+          <path d="M6 17 L12 17 L12 10 L6 17"/>
+          <line x1="12" y1="17" x2="18" y2="13"/>
+          <line x1="12" y1="10" x2="18" y2="13"/>
+          <line x1="10.5" y1="10" x2="13.5" y2="10"/>
+          <path d="M18 13 L16.5 11.2 M18 13 L19.5 11.2"/>
+          <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+        <h1>BIKE STORE MDZ</h1>
+      </div>
+      <form id="loginForm">
+        <label>Usuario<input id="loginUsername" type="text" autocomplete="username" placeholder="Tu usuario" /></label>
+        <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña" /></label>
+        <p id="loginError" class="login-error hidden">Usuario o contraseña incorrectos.</p>
+        <button class="primary full" type="submit">Ingresar</button>
+      </form>
+    </div>
+  </div>
+
+  <header class="app-header hidden">
     <div class="app-header-brand">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="header-bike-icon" aria-hidden="true">
         <circle cx="6" cy="17" r="4"/>
@@ -21,9 +44,10 @@ const appMarkup = `
         <h1>BIKE STORE MDZ</h1>
       </div>
     </div>
+      <button id="logoutBtn" class="logout-btn" type="button">Salir</button>
   </header>
 
-  <main class="app-shell">
+  <main class="app-shell hidden">
     <div class="mobile-module-menu" data-view="venta">
       <span>Modulo</span>
       <button id="moduleMenuButton" class="module-menu-button" type="button" aria-expanded="false" aria-controls="moduleMenuList">
@@ -37,6 +61,7 @@ const appMarkup = `
         <button data-module-option="remitos" type="button">Comprobantes</button>
         <button data-module-option="ajustes" type="button">Ajustes</button>
         <button data-module-option="analiticas" type="button">Analíticas</button>
+        <button data-module-option="catalogo" type="button">Catálogo</button>
       </div>
     </div>
 
@@ -48,6 +73,7 @@ const appMarkup = `
       <button class="tab" data-view="remitos" type="button">Comprobantes</button>
       <button class="tab" data-view="ajustes" type="button">Ajustes</button>
       <button class="tab" data-view="analiticas" type="button">Analíticas</button>
+      <button class="tab" data-view="catalogo" type="button">Catálogo</button>
     </nav>
 
     <section class="view active" id="venta">
@@ -261,6 +287,41 @@ const appMarkup = `
       </div>
     </section>
 
+    <section class="view" id="catalogo">
+      <div class="catalog-layout">
+        <div class="catalog-main">
+          <input id="catalogSearch" type="search" placeholder="Buscar por nombre o codigo..." class="catalog-search" />
+          <div id="catalogGrid" class="catalog-grid"></div>
+        </div>
+        <aside id="cartPanel" class="cart-panel">
+          <h2 class="cart-title">Carrito</h2>
+          <div id="cartItems" class="cart-items"></div>
+          <div class="cart-footer">
+            <div class="cart-total-row">
+              <span>Total</span>
+              <strong id="cartTotal">$0</strong>
+            </div>
+            <button id="checkoutBtn" class="primary full" type="button" disabled>Generar comprobante</button>
+          </div>
+        </aside>
+      </div>
+      <button id="cartFloatingBtn" class="cart-floating-btn" type="button" aria-label="Ver carrito">
+        🛒 <span id="cartBadge" class="cart-badge hidden">0</span>
+      </button>
+      <div id="cartBottomSheet" class="cart-bottom-sheet hidden">
+        <div class="cart-bottom-sheet-handle"></div>
+        <h2 class="cart-title">Carrito</h2>
+        <div id="cartItemsMobile" class="cart-items"></div>
+        <div class="cart-footer">
+          <div class="cart-total-row">
+            <span>Total</span>
+            <strong id="cartTotalMobile">$0</strong>
+          </div>
+          <button id="checkoutBtnMobile" class="primary full" type="button" disabled>Generar comprobante</button>
+        </div>
+      </div>
+    </section>
+
     <section class="view" id="ajustes">
       <div class="panel">
         <h2>Datos del negocio</h2>
@@ -296,6 +357,26 @@ const appMarkup = `
       <article id="receiptPreview" class="receipt"></article>
     </div>
   </div>
+
+    <div class="modal hidden" id="checkoutModal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-actions no-print">
+          <button id="closeCheckoutModal" type="button">Cancelar</button>
+        </div>
+        <div class="checkout-form">
+          <h2>Confirmar comprobante</h2>
+          <label>Cliente<select id="checkoutCustomer"></select></label>
+          <div class="grid two">
+            <label>Fecha<input id="checkoutDate" type="date" /></label>
+            <label>Condicion<select id="checkoutCondition">
+              <option value="cuenta">Cuenta corriente</option>
+              <option value="contado">Contado</option>
+            </select></label>
+          </div>
+          <button class="primary full" id="confirmCheckout" type="button">Confirmar y generar PDF</button>
+        </div>
+      </div>
+    </div>
 `;
 
 export default function HomePage() {
