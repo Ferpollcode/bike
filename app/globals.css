@@ -107,18 +107,6 @@ button:active {
   padding: 12px 12px 90px;
 }
 
-.tabs {
-  position: sticky;
-  top: 65px;
-  z-index: 4;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 5px;
-  padding: 8px 0 12px;
-  overflow-x: auto;
-  background: var(--bg);
-}
-
 .mobile-module-menu {
   display: none;
 }
