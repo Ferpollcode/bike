@@ -1979,12 +1979,69 @@ function bindCatalogEvents() {
   });
 }
 
+function applyRoleUI() {
+  const ownerOnlyViews = ["venta", "clientes", "productos", "cuentas", "remitos", "ajustes", "analiticas"];
+  if (isOwner(session)) {
+    $$(".tab").forEach((tab) => tab.classList.remove("role-hidden"));
+    $$("[data-module-option]").forEach((btn) => btn.classList.remove("role-hidden"));
+  } else {
+    ownerOnlyViews.forEach((view) => {
+      $$(`.tab[data-view="${view}"]`).forEach((el) => el.classList.add("role-hidden"));
+      $$(`[data-module-option="${view}"]`).forEach((el) => el.classList.add("role-hidden"));
+    });
+    switchView("catalogo");
+  }
+}
+
+function bindLoginEvents() {
+  on("#loginForm", "submit", (e) => {
+    e.preventDefault();
+    const username = $("#loginUsername").value;
+    const password = $("#loginPassword").value;
+    const result = tryLogin(username, password, state);
+    if (!result) {
+      $("#loginError")?.classList.remove("hidden");
+      return;
+    }
+    session = result;
+    saveSession(session);
+    showApp();
+  });
+
+  on("#logoutBtn", "click", () => {
+    clearSession();
+    session = null;
+    clearCart();
+    showLogin();
+  });
+}
+
+function showLogin() {
+  $("#loginScreen")?.classList.remove("hidden");
+  document.querySelector(".app-header")?.classList.add("hidden");
+  $("main.app-shell")?.classList.add("hidden");
+}
+
+function showApp() {
+  $("#loginScreen")?.classList.add("hidden");
+  document.querySelector(".app-header")?.classList.remove("hidden");
+  $("main.app-shell")?.classList.remove("hidden");
+  applyRoleUI();
+  render();
+}
+
 function init() {
   $("#saleDate").value = today();
-  $("#paymentDate").value = today();
+  if ($("#paymentDate")) $("#paymentDate").value = today();
   if ($("#moduleMenuButton")) $(".mobile-module-menu")?.setAttribute("data-view", "venta");
   bindEvents();
-  render();
+  bindLoginEvents();
+  session = loadSession();
+  if (session) {
+    showApp();
+  } else {
+    showLogin();
+  }
 }
 
 export async function initBiciferApp() {
