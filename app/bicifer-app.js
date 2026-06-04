@@ -386,6 +386,12 @@ function renderSelects() {
   $("#accountCustomer").innerHTML = empty + options;
   $("#saleCustomer").value = selectedSaleCustomer;
   $("#accountCustomer").value = selectedAccountCustomer;
+  const checkoutCustomerEl = $("#checkoutCustomer");
+  if (checkoutCustomerEl) {
+    const selectedCheckout = checkoutCustomerEl.value;
+    checkoutCustomerEl.innerHTML = empty + options;
+    checkoutCustomerEl.value = selectedCheckout;
+  }
 }
 
 function renderCustomers() {
@@ -1446,7 +1452,9 @@ function bindEvents() {
     saveCustomer({
       name: $("#customerName").value,
       phone: $("#customerPhone").value,
-      address: $("#customerAddress").value
+      address: $("#customerAddress").value,
+      username: $("#customerUsername")?.value || "",
+      password: $("#customerPassword")?.value || ""
     });
     event.target.reset();
     $("#customerPhone").value = "549";
@@ -1567,6 +1575,8 @@ function bindEvents() {
     state.settings.bizPhone = $("#bizPhone").value.trim();
     state.settings.bizAddress = $("#bizAddress").value.trim();
     state.settings.bizFooter = $("#bizFooter").value.trim();
+    state.settings.ownerUsername = $("#ownerUsername")?.value.trim() || state.settings.ownerUsername;
+    state.settings.ownerPassword = $("#ownerPassword")?.value.trim() || state.settings.ownerPassword;
     saveState();
     render();
     alert("Ajustes guardados.");

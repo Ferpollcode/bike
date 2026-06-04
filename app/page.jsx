@@ -122,6 +122,8 @@ const appMarkup = `
           <label>Nombre<input id="customerName" required type="text" /></label>
           <label>Telefono WhatsApp<input id="customerPhone" inputmode="tel" type="tel" value="549" placeholder="Ej: 5493511234567" /></label>
           <label>Direccion<input id="customerAddress" type="text" /></label>
+            <label>Usuario (acceso catálogo)<input id="customerUsername" type="text" autocomplete="off" placeholder="Ej: cliente01" /></label>
+            <label>Contraseña<input id="customerPassword" type="password" autocomplete="off" placeholder="Contraseña del cliente" /></label>
           <button class="primary full" type="submit">Guardar cliente</button>
         </form>
       </div>
@@ -330,6 +332,9 @@ const appMarkup = `
           <label>Telefono<input id="bizPhone" type="text" /></label>
           <label>Direccion<input id="bizAddress" type="text" /></label>
           <label>Texto al pie<input id="bizFooter" type="text" /></label>
+            <h3 style="margin:16px 0 8px;font-size:15px">Acceso del dueño</h3>
+            <label>Usuario<input id="ownerUsername" type="text" autocomplete="off" placeholder="Usuario para ingresar" /></label>
+            <label>Contraseña<input id="ownerPassword" type="password" autocomplete="off" placeholder="Contraseña" /></label>
           <button class="primary full" type="submit">Guardar ajustes</button>
         </form>
       </div>
