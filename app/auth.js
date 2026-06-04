@@ -1,0 +1,51 @@
+const SESSION_KEY = "bicifer-session-v1";
+
+export function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession(session) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+export function tryLogin(username, password, state) {
+  const u = String(username || "").trim().toLowerCase();
+  const p = String(password || "").trim();
+  if (!u || !p) return null;
+
+  // Check owner credentials
+  const ownerUser = String(state.settings.ownerUsername || "").trim().toLowerCase();
+  const ownerPass = String(state.settings.ownerPassword || "").trim();
+  if (u === ownerUser && p === ownerPass) {
+    return { role: "owner", customerId: null };
+  }
+
+  // Check customer credentials
+  const customer = state.customers.find(
+    (c) =>
+      String(c.username || "").trim().toLowerCase() === u &&
+      String(c.password || "").trim() === p
+  );
+  if (customer) {
+    return { role: "customer", customerId: customer.id };
+  }
+
+  return null;
+}
+
+export function isOwner(session) {
+  return session?.role === "owner";
+}
+
+export function isCustomer(session) {
+  return session?.role === "customer";
+}
