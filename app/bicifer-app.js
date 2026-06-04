@@ -372,6 +372,7 @@ function render() {
   renderAnalytics();
   if ($("#homeBusinessName")) $("#homeBusinessName").textContent = state.settings.bizName || "BIKE STORE MDZ";
   $("#nextReceiptNumber").textContent = `Nro ${receiptNumber()}`;
+  renderCatalog();
 }
 
 function renderSelects() {
@@ -1822,6 +1823,45 @@ function renderAnalytics() {
   renderRankList("#topProductosMonto", a.topByMonto, ([name]) => name, ([, v]) => money(v), "rank-accent");
   renderRankList("#topClientesCompra", a.topByCompra, (c) => c.name, (c) => money(c.total), "amount-credit");
   renderRankList("#topClientesDeuda", a.topByDeuda, (c) => c.name, (c) => money(c.deuda), "amount-debit");
+}
+
+function renderCatalog() {
+  const grid = $("#catalogGrid");
+  if (!grid) return;
+  const term = $("#catalogSearch")?.value || "";
+  grid.innerHTML = renderCatalogGrid(state.products, term, money, escapeHtml);
+  renderCartPanels();
+}
+
+function renderCartPanels() {
+  const itemsHtml = renderCartItems(money, escapeHtml);
+  const total = cartTotal();
+  const count = cartItemCount();
+  const hasItems = count > 0;
+
+  const cartItemsEl = $("#cartItems");
+  if (cartItemsEl) cartItemsEl.innerHTML = itemsHtml;
+
+  const cartItemsMobileEl = $("#cartItemsMobile");
+  if (cartItemsMobileEl) cartItemsMobileEl.innerHTML = itemsHtml;
+
+  const cartTotalEl = $("#cartTotal");
+  if (cartTotalEl) cartTotalEl.textContent = money(total);
+
+  const cartTotalMobileEl = $("#cartTotalMobile");
+  if (cartTotalMobileEl) cartTotalMobileEl.textContent = money(total);
+
+  const checkoutBtn = $("#checkoutBtn");
+  if (checkoutBtn) checkoutBtn.disabled = !hasItems;
+
+  const checkoutBtnMobile = $("#checkoutBtnMobile");
+  if (checkoutBtnMobile) checkoutBtnMobile.disabled = !hasItems;
+
+  const badge = $("#cartBadge");
+  if (badge) {
+    badge.textContent = count;
+    badge.classList.toggle("hidden", !hasItems);
+  }
 }
 
 function init() {
