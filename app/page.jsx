@@ -34,7 +34,7 @@ const appMarkup = `
         <button data-module-option="clientes" type="button">Clientes</button>
         <button data-module-option="productos" type="button">Productos</button>
         <button data-module-option="cuentas" type="button">Cuentas</button>
-        <button data-module-option="remitos" type="button">Remitos</button>
+        <button data-module-option="remitos" type="button">Comprobantes</button>
         <button data-module-option="ajustes" type="button">Ajustes</button>
         <button data-module-option="analiticas" type="button">Analíticas</button>
       </div>
@@ -45,7 +45,7 @@ const appMarkup = `
       <button class="tab" data-view="clientes" type="button">Clientes</button>
       <button class="tab" data-view="productos" type="button">Productos</button>
       <button class="tab" data-view="cuentas" type="button">Cuentas</button>
-      <button class="tab" data-view="remitos" type="button">Remitos</button>
+      <button class="tab" data-view="remitos" type="button">Comprobantes</button>
       <button class="tab" data-view="ajustes" type="button">Ajustes</button>
       <button class="tab" data-view="analiticas" type="button">Analíticas</button>
     </nav>
@@ -53,7 +53,7 @@ const appMarkup = `
     <section class="view active" id="venta">
       <div class="panel">
         <div class="section-title">
-          <h2>Nuevo remito</h2>
+          <h2>Nuevo comprobante</h2>
           <span id="nextReceiptNumber"></span>
         </div>
         <label>Cliente<select id="saleCustomer"></select></label>
@@ -72,8 +72,13 @@ const appMarkup = `
           <h2>Articulos</h2>
           <button id="addLine" type="button">+ Item</button>
         </div>
-        <label>Buscar producto cargado<input id="productPicker" list="productsDatalist" type="search" placeholder="Codigo o descripcion" /></label>
-        <datalist id="productsDatalist"></datalist>
+        <div class="field">
+          <label for="productPicker">Buscar producto cargado</label>
+          <div class="product-picker-wrap">
+            <input id="productPicker" type="search" placeholder="Codigo o descripcion" autoComplete="off" />
+            <div id="productDropdown" class="product-dropdown hidden"></div>
+          </div>
+        </div>
         <div id="saleLines" class="lines"></div>
         <div class="total-row"><span>Total</span><strong id="saleTotal">$0</strong></div>
       </div>
@@ -167,7 +172,7 @@ const appMarkup = `
 
     <section class="view" id="remitos">
       <div class="panel">
-        <h2>Remitos guardados</h2>
+        <h2>Comprobantes guardados</h2>
         <input id="receiptSearch" type="search" placeholder="Buscar por cliente o numero" />
       </div>
       <div class="list" id="receiptsList"></div>
@@ -190,7 +195,7 @@ const appMarkup = `
           <div class="kpi-value" id="kpiTotalVendido">$0</div>
         </div>
         <div class="panel kpi-card">
-          <div class="kpi-label">Remitos emitidos</div>
+          <div class="kpi-label">Comprobantes emitidos</div>
           <div class="kpi-value" id="kpiRemitos">0</div>
         </div>
         <div class="panel kpi-card">

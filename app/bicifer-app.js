@@ -45,7 +45,7 @@ const moduleLabels = {
   clientes: "Clientes",
   productos: "Productos",
   cuentas: "Cuentas",
-  remitos: "Remitos",
+  remitos: "Comprobantes",
   ajustes: "Ajustes",
   analiticas: "Analíticas"
 };
@@ -407,17 +407,12 @@ function renderCustomers() {
 function renderProducts() {
   const productSearch = $("#productSearch");
   const productsList = $("#productsList");
-  const productsDatalist = $("#productsDatalist");
-  if (!productSearch || !productsList || !productsDatalist) return;
+  if (!productSearch || !productsList) return;
 
   const term = productSearch.value.toLowerCase().trim();
   const products = state.products
     .filter((product) => `${product.code} ${product.description}`.toLowerCase().includes(term))
     .sort((a, b) => a.description.localeCompare(b.description));
-
-  productsDatalist.innerHTML = state.products
-    .map((product) => `<option value="${escapeHtml(product.code)} - ${escapeHtml(product.description)} - ${money(product.price)}"></option>`)
-    .join("");
 
   productsList.innerHTML = products.length
     ? products
@@ -485,7 +480,7 @@ function renderReceipts() {
           return `
             <article class="card">
               <div class="section-title">
-                <h3>Remito ${receipt.number}</h3>
+                <h3>Comprobante ${receipt.number}</h3>
                 <strong>${money(receipt.total)}</strong>
               </div>
               <p>${escapeHtml(customer?.name || "Cliente eliminado")}</p>
@@ -500,7 +495,7 @@ function renderReceipts() {
           `;
         })
         .join("")
-    : `<div class="card"><p class="muted">No hay remitos guardados.</p></div>`;
+    : `<div class="card"><p class="muted">No hay comprobantes guardados.</p></div>`;
 }
 
 function renderSettings() {
@@ -510,7 +505,7 @@ function renderSettings() {
   $("#bizFooter").value = state.settings.bizFooter || "";
 }
 
-function addSaleLine(item = {}) {
+function addSaleLine(item = {}, prepend = false) {
   const line = document.createElement("div");
   line.className = "line-item";
   const qty = integerValue(item.qty || 1) || 1;
@@ -521,7 +516,11 @@ function addSaleLine(item = {}) {
     <label>Precio<input class="item-price" inputmode="numeric" min="0" step="1" type="number" value="${price}" /></label>
     <button class="remove-line" type="button">X</button>
   `;
-  $("#saleLines").appendChild(line);
+  if (prepend) {
+    $("#saleLines").prepend(line);
+  } else {
+    $("#saleLines").appendChild(line);
+  }
   updateSaleTotal();
 }
 
@@ -531,7 +530,7 @@ function addProductToSale(product) {
     name: `${product.code} - ${product.description}`,
     qty: 1,
     price
-  });
+  }, true);
 }
 
 function getSaleItems() {
@@ -601,7 +600,7 @@ function deleteCustomer(customerId) {
   const hasReceipts = state.receipts.some((receipt) => receipt.customerId === customerId);
   const hasLedger = state.ledger.some((entry) => entry.customerId === customerId);
   if (hasReceipts || hasLedger) {
-    alert("No se puede borrar este cliente porque tiene remitos o movimientos de cuenta corriente.");
+    alert("No se puede borrar este cliente porque tiene comprobantes o movimientos de cuenta corriente.");
     return;
   }
 
@@ -659,7 +658,7 @@ function saveReceipt() {
       type: "sale",
       amount: receipt.total,
       date: receipt.date,
-      note: `Remito ${receipt.number}`,
+      note: `Comprobante ${receipt.number}`,
       receiptId: receipt.id,
       createdAt: Date.now()
     });
@@ -693,14 +692,14 @@ function loadReceiptForEdit(receiptId) {
   $("#saleNotes").value = receipt.notes || "";
   $("#saleLines").innerHTML = "";
   receipt.items.forEach((item) => addSaleLine(item));
-  $("#saveSale").textContent = `Guardar cambios remito ${receipt.number}`;
+  $("#saveSale").textContent = `Guardar cambios comprobante ${receipt.number}`;
   updateSaleTotal();
 }
 
 function deleteReceipt(receiptId) {
   const receipt = state.receipts.find((item) => item.id === receiptId);
   if (!receipt) return;
-  if (!confirm(`¿Borrar el remito ${receipt.number}?`)) return;
+  if (!confirm(`¿Borrar el comprobante ${receipt.number}?`)) return;
 
   state.receipts = state.receipts.filter((item) => item.id !== receiptId);
   state.ledger = state.ledger.filter((entry) => entry.receiptId !== receiptId);
@@ -721,7 +720,7 @@ function receiptText(receipt) {
     .map((item) => `- ${item.qty} x ${item.name}: ${money(item.qty * item.price)}`)
     .join("\n");
   const balanceLine = receipt.condition === "cuenta" ? `\nSaldo actual: ${money(getBalance(receipt.customerId))}` : "";
-  return `${state.settings.bizName}\nRemito ${receipt.number} - ${receipt.date}\nCliente: ${customer?.name || ""}\n\n${lines}\n\nTotal: ${money(receipt.total)}\nCondicion: ${receipt.condition === "cuenta" ? "Cuenta corriente" : "Contado"}${balanceLine}\n${receipt.notes ? `\nObs: ${receipt.notes}` : ""}\n\n${state.settings.bizFooter || ""}`;
+  return `${state.settings.bizName}\nComprobante ${receipt.number} - ${receipt.date}\nCliente: ${customer?.name || ""}\n\n${lines}\n\nTotal: ${money(receipt.total)}\nCondicion: ${receipt.condition === "cuenta" ? "Cuenta corriente" : "Contado"}${balanceLine}\n${receipt.notes ? `\nObs: ${receipt.notes}` : ""}\n\n${state.settings.bizFooter || ""}`;
 }
 
 function pdfEscape(value) {
@@ -786,7 +785,7 @@ function buildReceiptPdf(receipt) {
   if (state.settings.bizAddress) text(state.settings.bizAddress, 40, businessInfoY, 10);
   if (state.settings.bizPhone) text(state.settings.bizPhone, 40, businessInfoY - 15, 10);
   fillRect(410, 758, 130, 42);
-  text("REMITO", 448, 782, 14, "1 1 1");
+  text("COMPROBANTE", 430, 782, 12, "1 1 1");
   text(`Nro ${receipt.number}`, 450, 764, 10, "1 1 1");
   text(`Fecha ${receipt.date}`, 435, 748, 10);
   line(40, 735, 555, 735, 2);
@@ -864,18 +863,18 @@ function downloadReceiptPdf(receipt) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `remito-${receipt.number}.pdf`;
+  link.download = `comprobante-${receipt.number}.pdf`;
   link.click();
   URL.revokeObjectURL(url);
 }
 
 async function shareReceiptPdf(receipt) {
   const blob = buildReceiptPdf(receipt);
-  const file = new File([blob], `remito-${receipt.number}.pdf`, { type: "application/pdf" });
+  const file = new File([blob], `comprobante-${receipt.number}.pdf`, { type: "application/pdf" });
   const customer = customerById(receipt.customerId);
   const shareData = {
-    title: `Remito ${receipt.number}`,
-    text: `Remito ${receipt.number} - ${customer?.name || ""}`,
+    title: `Comprobante ${receipt.number}`,
+    text: `Comprobante ${receipt.number} - ${customer?.name || ""}`,
     files: [file]
   };
 
@@ -885,7 +884,7 @@ async function shareReceiptPdf(receipt) {
   }
 
   downloadReceiptPdf(receipt);
-  alert("Tu navegador no permite adjuntar el PDF automaticamente. Se descargo el remito: envialo por WhatsApp como documento.");
+  alert("Tu navegador no permite adjuntar el PDF automaticamente. Se descargo el comprobante: envialo por WhatsApp como documento.");
 }
 
 function buildAccountPdf(customerId) {
@@ -1038,7 +1037,7 @@ function openReceipt(receiptId) {
         <p>${escapeHtml(state.settings.bizPhone || "")}</p>
       </div>
       <div class="receipt-meta">
-        <h3>Remito</h3>
+        <h3>Comprobante</h3>
         <p>Nro ${receipt.number}</p>
         <p>${receipt.date}</p>
       </div>
@@ -1399,7 +1398,7 @@ function bindEvents() {
   $$(".menu-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$(".back-home").forEach((button) => button.addEventListener("click", () => switchView("inicio")));
 
-  on("#addLine", "click", () => addSaleLine());
+  on("#addLine", "click", () => addSaleLine({}, true));
   on("#saleLines", "input", updateSaleTotal);
   on("#saleLines", "change", (event) => {
     if (event.target.classList.contains("item-qty")) {
@@ -1466,11 +1465,57 @@ function bindEvents() {
   on("#accountCustomer", "change", renderAccount);
   on("#receiptSearch", "input", renderReceipts);
   on("#productSearch", "input", renderProducts);
-  on("#productPicker", "change", () => {
-    const product = findProductFromPickerValue($("#productPicker").value);
+  const productPicker = $("#productPicker");
+  const productDropdown = $("#productDropdown");
+
+  if (!productPicker || !productDropdown) {
+    console.warn("productPicker or productDropdown not found");
+  }
+
+  function updateProductDropdown() {
+    const term = productPicker.value.toLowerCase().trim();
+    if (!term) {
+      productDropdown.classList.add("hidden");
+      return;
+    }
+    const matches = state.products
+      .filter((p) => `${p.code} ${p.description}`.toLowerCase().includes(term))
+      .slice(0, 25);
+    if (!matches.length) {
+      productDropdown.innerHTML = `<div class="product-dropdown-empty">Sin resultados</div>`;
+      productDropdown.classList.remove("hidden");
+      return;
+    }
+    productDropdown.innerHTML = matches
+      .map((p) => `<div class="product-dropdown-item" data-code="${escapeHtml(p.code)}"><strong>${escapeHtml(p.description)}</strong> &mdash; ${money(p.price)}<br><small class="muted">${escapeHtml(p.code)}</small></div>`)
+      .join("");
+    productDropdown.classList.remove("hidden");
+  }
+
+  if (productPicker && productDropdown) productPicker.addEventListener("input", updateProductDropdown);
+  if (productPicker && productDropdown) productPicker.addEventListener("focus", updateProductDropdown);
+  if (productPicker && productDropdown) productPicker.addEventListener("blur", () => {
+    setTimeout(() => productDropdown.classList.add("hidden"), 200);
+  });
+  if (productDropdown) productDropdown.addEventListener("mousedown", (e) => {
+    const item = e.target.closest(".product-dropdown-item");
+    if (!item) return;
+    e.preventDefault();
+    const product = state.products.find((p) => p.code === item.dataset.code);
     if (!product) return;
     addProductToSale(product);
-    $("#productPicker").value = "";
+    productPicker.value = "";
+    productDropdown.classList.add("hidden");
+  });
+  if (productDropdown) productDropdown.addEventListener("touchstart", (e) => {
+    const item = e.target.closest(".product-dropdown-item");
+    if (!item) return;
+    const product = state.products.find((p) => p.code === item.dataset.code);
+    if (!product) return;
+    addProductToSale(product);
+    productPicker.value = "";
+    productDropdown.classList.add("hidden");
+    productPicker.blur();
   });
 
   on("#savePayment", "click", () => {

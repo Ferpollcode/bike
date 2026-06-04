@@ -112,8 +112,8 @@ button:active {
   top: 65px;
   z-index: 4;
   display: grid;
-  grid-template-columns: repeat(7, minmax(70px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
   padding: 8px 0 12px;
   overflow-x: auto;
   background: var(--bg);
@@ -224,11 +224,12 @@ button:active {
 
 .tab {
   min-height: 44px;
-  padding: 9px 8px;
+  padding: 9px 4px;
   color: #17202a;
   background: #e9eef3;
-  font-size: 13px;
+  font-size: 12px;
   box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.45);
+  word-break: break-word;
 }
 
 .tab[data-view="venta"] {
@@ -474,6 +475,64 @@ textarea {
 .amount-credit {
   color: var(--primary);
   font-weight: 700;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field > label {
+  margin: 0;
+}
+
+.product-picker-wrap {
+  position: relative;
+}
+
+.product-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.product-dropdown.hidden {
+  display: none;
+}
+
+.product-dropdown-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.product-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.product-dropdown-item:active {
+  background: #eef8f7;
+}
+
+.product-dropdown-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .file-button {
