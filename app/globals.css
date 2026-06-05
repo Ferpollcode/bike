@@ -1320,6 +1320,7 @@ main.app-shell.hidden {
   background: var(--surface);
   box-shadow: var(--shadow);
   text-align: center;
+  height: 100%;
 }
 
 .product-card-image {
@@ -1359,7 +1360,7 @@ main.app-shell.hidden {
   gap: 4px;
   align-items: center;
   width: 100%;
-  margin-top: 4px;
+  margin-top: auto;
 }
 
 .product-card-add input {
