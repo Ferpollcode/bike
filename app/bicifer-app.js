@@ -1930,9 +1930,12 @@ function bindCatalogEvents() {
       const product = state.products.find((p) => p.code === code);
       if (!product) return;
       const qtyInput = $("#catalogGrid").querySelector(`[data-qty-input="${code}"]`);
-      const qty = Math.max(1, parseInt(qtyInput?.value || "1", 10));
-      addToCart(product, qty);
-      if (qtyInput) qtyInput.value = 1;
+      const inputQty = Math.max(1, parseInt(qtyInput?.value || "1", 10));
+      const currentInCart = getCart().find((i) => i.code === code)?.qty || 0;
+      const delta = inputQty - currentInCart;
+      if (delta > 0) addToCart(product, delta);
+      const newTotal = getCart().find((i) => i.code === code)?.qty || inputQty;
+      if (qtyInput) qtyInput.value = newTotal;
       renderCartPanels();
     }
   });

@@ -59,7 +59,7 @@ export function renderCatalogGrid(products, searchTerm, money, escapeHtml) {
         <p class="product-card-price">${money(p.price)}</p>
         <div class="product-card-add">
           <button class="qty-btn" data-qty-dec="${escapeHtml(p.code)}" type="button">−</button>
-          <input class="catalog-qty-input" data-qty-input="${escapeHtml(p.code)}" type="number" min="1" step="1" value="1" inputmode="numeric" />
+          <input class="catalog-qty-input" data-qty-input="${escapeHtml(p.code)}" type="number" min="1" step="1" value="${cart.find(i => i.code === p.code)?.qty || 1}" inputmode="numeric" />
           <button class="qty-btn" data-qty-inc="${escapeHtml(p.code)}" type="button">+</button>
         </div>
         <button class="product-card-btn" data-add-to-cart="${escapeHtml(p.code)}" type="button">Agregar</button>
