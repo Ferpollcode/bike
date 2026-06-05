@@ -17,15 +17,23 @@ export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
 }
 
+const OWNER_USERNAME = "pipa";
+const OWNER_PASSWORD = "Pipa54321";
+
 export function tryLogin(username, password, state) {
   const u = String(username || "").trim().toLowerCase();
   const p = String(password || "").trim();
   if (!u || !p) return null;
 
-  // Check owner credentials
+  // Check hardcoded owner credentials
+  if (u === OWNER_USERNAME.toLowerCase() && p === OWNER_PASSWORD) {
+    return { role: "owner", customerId: null };
+  }
+
+  // Check owner credentials from settings (configurable)
   const ownerUser = String(state.settings.ownerUsername || "").trim().toLowerCase();
   const ownerPass = String(state.settings.ownerPassword || "").trim();
-  if (u === ownerUser && p === ownerPass) {
+  if (ownerUser && ownerPass && u === ownerUser && p === ownerPass) {
     return { role: "owner", customerId: null };
   }
 
