@@ -1950,9 +1950,18 @@ function bindCatalogEvents() {
   on("#cartItems", "click", handleRemoveFromCart);
   on("#cartItemsMobile", "click", handleRemoveFromCart);
 
-  on("#cartFloatingBtn", "click", () => {
-    $("#cartBottomSheet")?.classList.toggle("hidden");
-  });
+  const openCartSheet = () => {
+    $("#cartBottomSheet")?.classList.remove("hidden");
+    document.body.classList.add("cart-open");
+  };
+
+  const closeCartSheet = () => {
+    $("#cartBottomSheet")?.classList.add("hidden");
+    document.body.classList.remove("cart-open");
+  };
+
+  on("#cartFloatingBtn", "click", openCartSheet);
+  on("#closeCartSheet", "click", closeCartSheet);
 
   const openCheckout = () => {
     const modal = $("#checkoutModal");

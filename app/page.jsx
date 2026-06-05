@@ -312,7 +312,10 @@ const appMarkup = `
       </button>
       <div id="cartBottomSheet" class="cart-bottom-sheet hidden">
         <div class="cart-bottom-sheet-handle"></div>
-        <h2 class="cart-title">Carrito</h2>
+        <div class="cart-bottom-sheet-header">
+          <h2 class="cart-title">Carrito</h2>
+          <button id="closeCartSheet" class="cart-close-btn" type="button" aria-label="Cerrar carrito">✕</button>
+        </div>
         <div id="cartItemsMobile" class="cart-items"></div>
         <div class="cart-footer">
           <div class="cart-total-row">

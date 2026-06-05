@@ -1531,6 +1531,32 @@ main.app-shell.hidden {
   display: none;
 }
 
+.cart-bottom-sheet {
+  overscroll-behavior: contain;
+}
+
+.cart-bottom-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cart-bottom-sheet-header .cart-title {
+  margin: 0;
+}
+
+.cart-close-btn {
+  min-height: unset;
+  padding: 6px 10px;
+  font-size: 16px;
+  background: #e9eef3;
+  color: var(--text);
+}
+
+body.cart-open {
+  overflow: hidden;
+}
+
 .cart-bottom-sheet-handle {
   width: 40px;
   height: 4px;
