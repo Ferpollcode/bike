@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from "chart.js";
-import { loadSession, saveSession, clearSession, tryLogin, isOwner, isCustomer } from "./auth";
+import { loadSession, saveSession, clearSession, tryLogin, hashPassword, isOwner, isCustomer } from "./auth";
 import {
   getCart, clearCart, addToCart, removeFromCart, updateCartQty,
   cartTotal, cartItemCount, renderCatalogGrid, renderCartItems,
@@ -528,7 +528,7 @@ function renderSettings() {
   $("#bizAddress").value = state.settings.bizAddress || "";
   $("#bizFooter").value = state.settings.bizFooter || "";
   if ($("#ownerUsername")) $("#ownerUsername").value = state.settings.ownerUsername || "";
-  if ($("#ownerPassword")) $("#ownerPassword").value = state.settings.ownerPassword || "";
+  if ($("#ownerPassword")) $("#ownerPassword").value = "";
 }
 
 function addSaleLine(item = {}, prepend = false) {
@@ -623,7 +623,7 @@ function loadCustomerForEdit(customerId) {
   $("#customerPhone").value = customer.phone || "549";
   $("#customerAddress").value = customer.address || "";
   if ($("#customerUsername")) $("#customerUsername").value = customer.username || "";
-  if ($("#customerPassword")) $("#customerPassword").value = customer.password || "";
+  if ($("#customerPassword")) $("#customerPassword").value = "";
   $("#customerForm button[type='submit']").textContent = "Guardar cambios";
 }
 
@@ -1480,14 +1480,24 @@ function bindEvents() {
     $("#quickCustomerName").value = "";
   });
 
-  on("#customerForm", "submit", (event) => {
+  on("#customerForm", "submit", async (event) => {
     event.preventDefault();
+    const rawPass = ($("#customerPassword")?.value || "").trim();
+    let password;
+    if (rawPass) {
+      password = await hashPassword(rawPass);
+    } else if (editingCustomerId) {
+      // Keep existing password when field is left blank during edit
+      password = customerById(editingCustomerId)?.password || "";
+    } else {
+      password = "";
+    }
     saveCustomer({
       name: $("#customerName").value,
       phone: $("#customerPhone").value,
       address: $("#customerAddress").value,
       username: $("#customerUsername")?.value || "",
-      password: $("#customerPassword")?.value || ""
+      password
     });
     event.target.reset();
     $("#customerPhone").value = "549";
@@ -1602,14 +1612,15 @@ function bindEvents() {
     shareAccountPdf($("#accountCustomer").value);
   });
 
-  on("#settingsForm", "submit", (event) => {
+  on("#settingsForm", "submit", async (event) => {
     event.preventDefault();
     state.settings.bizName = $("#bizName").value.trim() || "BIKE STORE MDZ";
     state.settings.bizPhone = $("#bizPhone").value.trim();
     state.settings.bizAddress = $("#bizAddress").value.trim();
     state.settings.bizFooter = $("#bizFooter").value.trim();
     state.settings.ownerUsername = $("#ownerUsername")?.value.trim() || state.settings.ownerUsername;
-    state.settings.ownerPassword = $("#ownerPassword")?.value.trim() || state.settings.ownerPassword;
+    const rawOwnerPass = $("#ownerPassword")?.value.trim();
+    if (rawOwnerPass) state.settings.ownerPassword = await hashPassword(rawOwnerPass);
     saveState();
     render();
     alert("Ajustes guardados.");
@@ -2138,11 +2149,11 @@ function applyRoleUI() {
 }
 
 function bindLoginEvents() {
-  on("#loginForm", "submit", (e) => {
+  on("#loginForm", "submit", async (e) => {
     e.preventDefault();
     const username = $("#loginUsername").value;
     const password = $("#loginPassword").value;
-    const result = tryLogin(username, password, state);
+    const result = await tryLogin(username, password, state);
     if (!result) {
       $("#loginError")?.classList.remove("hidden");
       return;

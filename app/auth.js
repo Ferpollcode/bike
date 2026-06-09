@@ -17,33 +17,48 @@ export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
 }
 
+// Returns "h:<hex>" — stored passwords use this prefix.
+export async function hashPassword(plain) {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(String(plain))
+  );
+  const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `h:${hex}`;
+}
+
+// Accepts both legacy plain-text passwords and hashed ones.
+async function verifyPassword(plain, stored) {
+  if (!stored) return false;
+  if (stored.startsWith("h:")) return stored === await hashPassword(plain);
+  return stored === String(plain);
+}
+
 const OWNER_USERNAME = "pipa";
 const OWNER_PASSWORD = "Pipa54321";
 
-export function tryLogin(username, password, state) {
+export async function tryLogin(username, password, state) {
   const u = String(username || "").trim().toLowerCase();
   const p = String(password || "").trim();
   if (!u || !p) return null;
 
-  // Check hardcoded owner credentials
+  // Hardcoded fallback owner — change credentials in Configuración
   if (u === OWNER_USERNAME.toLowerCase() && p === OWNER_PASSWORD) {
     return { role: "owner", customerId: null };
   }
 
-  // Check owner credentials from settings (configurable)
+  // Configurable owner credentials
   const ownerUser = String(state.settings.ownerUsername || "").trim().toLowerCase();
   const ownerPass = String(state.settings.ownerPassword || "").trim();
-  if (ownerUser && ownerPass && u === ownerUser && p === ownerPass) {
+  if (ownerUser && ownerPass && u === ownerUser && await verifyPassword(p, ownerPass)) {
     return { role: "owner", customerId: null };
   }
 
-  // Check customer credentials
+  // Customer credentials
   const customer = state.customers.find(
-    (c) =>
-      String(c.username || "").trim().toLowerCase() === u &&
-      String(c.password || "").trim() === p
+    (c) => String(c.username || "").trim().toLowerCase() === u
   );
-  if (customer) {
+  if (customer && await verifyPassword(p, customer.password)) {
     return { role: "customer", customerId: customer.id };
   }
 
