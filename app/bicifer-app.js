@@ -591,6 +591,8 @@ function saveCustomer({ name, phone = "", address = "", username = "", password 
     existing.username = username.trim();
     existing.password = password.trim();
     editingCustomerId = null;
+    $("#customerForm").reset();
+    $("#customerPhone").value = "549";
     $("#customerForm button[type='submit']").textContent = "Guardar cliente";
     saveState();
     render();

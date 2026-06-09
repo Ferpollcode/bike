@@ -1759,6 +1759,15 @@ body.cart-open {
     min-width: 0;
     flex-shrink: 1;
   }
+
+  .catalog-categories {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .catalog-categories::-webkit-scrollbar { display: none; }
 }
 
 @media print {
