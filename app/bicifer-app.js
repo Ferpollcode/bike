@@ -1940,15 +1940,37 @@ function bindCatalogEvents() {
     }
   });
 
-  const handleRemoveFromCart = (e) => {
-    const btn = e.target.closest("[data-remove-cart]");
-    if (!btn) return;
-    removeFromCart(btn.dataset.removeCart);
+  const handleCartAction = (e) => {
+    const removeBtn = e.target.closest("[data-remove-cart]");
+    const decBtn = e.target.closest("[data-cart-dec]");
+    const incBtn = e.target.closest("[data-cart-inc]");
+
+    if (removeBtn) {
+      removeFromCart(removeBtn.dataset.removeCart);
+    } else if (decBtn) {
+      const code = decBtn.dataset.cartDec;
+      const item = getCart().find((i) => i.code === code);
+      if (!item) return;
+      if (item.qty <= 1) {
+        removeFromCart(code);
+      } else {
+        updateCartQty(code, item.qty - 1);
+      }
+    } else if (incBtn) {
+      const code = incBtn.dataset.cartInc;
+      const item = getCart().find((i) => i.code === code);
+      if (!item) return;
+      updateCartQty(code, item.qty + 1);
+    } else {
+      return;
+    }
+
     renderCartPanels();
+    renderCatalog();
   };
 
-  on("#cartItems", "click", handleRemoveFromCart);
-  on("#cartItemsMobile", "click", handleRemoveFromCart);
+  on("#cartItems", "click", handleCartAction);
+  on("#cartItemsMobile", "click", handleCartAction);
 
   const openCartSheet = () => {
     $("#cartBottomSheet")?.classList.remove("hidden");
