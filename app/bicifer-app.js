@@ -3,7 +3,8 @@ import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip }
 import { loadSession, saveSession, clearSession, tryLogin, isOwner, isCustomer } from "./auth";
 import {
   getCart, clearCart, addToCart, removeFromCart, updateCartQty,
-  cartTotal, cartItemCount, renderCatalogGrid, renderCartItems
+  cartTotal, cartItemCount, renderCatalogGrid, renderCartItems,
+  renderCategoryChips, renderPagination
 } from "./catalog";
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -40,6 +41,10 @@ let pendingProductImport = null;
 let analyticsChart = null;
 let analyticsPeriod = "mes";
 let editingProductCode = null;
+let catalogPage = 1;
+let catalogSort = "alpha";
+let catalogCategory = "";
+const CATALOG_PAGE_SIZE = 24;
 let session = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -271,6 +276,7 @@ function parseProductsFromRows(rows) {
   const codeIndex = findColumn(headers, ["codigo", "code"]);
   const descriptionIndex = findColumn(headers, ["producto", "descripcion", "description"]);
   const priceIndex = findColumn(headers, ["precio", "price"]);
+  const categoryIndex = findColumn(headers, ["categoria", "category", "cat"]);
 
   if (codeIndex < 0 || descriptionIndex < 0 || priceIndex < 0) {
     return {
@@ -311,7 +317,8 @@ function parseProductsFromRows(rows) {
       });
     }
 
-    products.push({ code, description, price: price ?? 0 });
+    const category = categoryIndex >= 0 ? String(row[categoryIndex] || "").trim() : "";
+    products.push({ code, description, price: price ?? 0, category });
   });
 
   const byCode = new Map();
@@ -439,6 +446,7 @@ function renderProducts() {
               <strong>${money(product.price)}</strong>
             </div>
             <p class="muted">Codigo: ${escapeHtml(product.code)}</p>
+            ${product.category ? `<span class="pill">${escapeHtml(product.category)}</span>` : ""}
             <div class="card-actions">
               <button type="button" data-edit-product="${escapeHtml(product.code)}">Editar</button>
               <button type="button" data-delete-product="${escapeHtml(product.code)}">Borrar</button>
@@ -1334,6 +1342,14 @@ function loadProductForEdit(code) {
   $("#editProductCode").value = product.code;
   $("#editProductDescription").value = product.description;
   $("#editProductPrice").value = product.price;
+  if ($("#editProductCategory")) {
+    $("#editProductCategory").value = product.category || "";
+    const datalist = $("#categoryOptions");
+    if (datalist) {
+      const categories = [...new Set(state.products.map((p) => p.category || "").filter(Boolean))].sort();
+      datalist.innerHTML = categories.map((c) => `<option value="${escapeHtml(c)}">`).join("");
+    }
+  }
   $("#productEditPanel").classList.remove("hidden");
   $("#productEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1354,7 +1370,8 @@ function saveProductEdit(event) {
     alert(`Ya existe un producto con el codigo ${newCode}.`);
     return;
   }
-  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice };
+  const newCategory = ($("#editProductCategory")?.value || "").trim();
+  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory };
   editingProductCode = null;
   $("#productEditPanel").classList.add("hidden");
   saveState();
@@ -1836,11 +1853,54 @@ function renderAnalytics() {
   renderRankList("#topClientesDeuda", a.topByDeuda, (c) => c.name, (c) => money(c.deuda), "amount-debit");
 }
 
+function buildPopularityMap() {
+  const map = new Map();
+  state.receipts.forEach((receipt) => {
+    (receipt.items || []).forEach((item) => {
+      const code = String(item.name || "").split(" - ")[0].trim().toUpperCase();
+      if (code) map.set(code, (map.get(code) || 0) + (item.qty || 0));
+    });
+  });
+  return map;
+}
+
 function renderCatalog() {
   const grid = $("#catalogGrid");
   if (!grid) return;
-  const term = $("#catalogSearch")?.value || "";
-  grid.innerHTML = renderCatalogGrid(state.products, term, money, escapeHtml);
+
+  const term = ($("#catalogSearch")?.value || "").toLowerCase().trim();
+
+  let products = state.products.filter((p) => {
+    const matchSearch = !term || `${p.code} ${p.description}`.toLowerCase().includes(term);
+    const matchCategory = !catalogCategory || (p.category || "") === catalogCategory;
+    return matchSearch && matchCategory;
+  });
+
+  const popularityMap = catalogSort === "popular" ? buildPopularityMap() : null;
+  products = [...products].sort((a, b) => {
+    switch (catalogSort) {
+      case "alpha-desc": return b.description.localeCompare(a.description);
+      case "price-asc":  return a.price - b.price;
+      case "price-desc": return b.price - a.price;
+      case "popular":    return (popularityMap.get(b.code) || 0) - (popularityMap.get(a.code) || 0);
+      default:           return a.description.localeCompare(b.description);
+    }
+  });
+
+  const totalPages = Math.max(1, Math.ceil(products.length / CATALOG_PAGE_SIZE));
+  if (catalogPage > totalPages) catalogPage = totalPages;
+  const pageProducts = products.slice((catalogPage - 1) * CATALOG_PAGE_SIZE, catalogPage * CATALOG_PAGE_SIZE);
+
+  const categories = [...new Set(state.products.map((p) => p.category || "").filter(Boolean))].sort();
+
+  grid.innerHTML = renderCatalogGrid(pageProducts, money, escapeHtml);
+
+  const categoriesEl = $("#catalogCategories");
+  if (categoriesEl) categoriesEl.innerHTML = renderCategoryChips(categories, catalogCategory, escapeHtml);
+
+  const paginationEl = $("#catalogPagination");
+  if (paginationEl) paginationEl.innerHTML = renderPagination(catalogPage, totalPages);
+
   renderCartPanels();
 }
 
@@ -1908,7 +1968,29 @@ function buildAndSaveReceipt({ customerId, date, condition, items }) {
 }
 
 function bindCatalogEvents() {
-  on("#catalogSearch", "input", renderCatalog);
+  on("#catalogSearch", "input", () => { catalogPage = 1; renderCatalog(); });
+
+  on("#catalogSort", "change", () => {
+    catalogSort = $("#catalogSort").value;
+    catalogPage = 1;
+    renderCatalog();
+  });
+
+  on("#catalogCategories", "click", (e) => {
+    const chip = e.target.closest("[data-category]");
+    if (!chip) return;
+    catalogCategory = chip.dataset.category;
+    catalogPage = 1;
+    renderCatalog();
+  });
+
+  on("#catalogPagination", "click", (e) => {
+    const btn = e.target.closest("[data-page]");
+    if (!btn || btn.disabled) return;
+    catalogPage = parseInt(btn.dataset.page, 10);
+    renderCatalog();
+    $("#catalogGrid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   on("#catalogGrid", "click", (e) => {
     const addBtn = e.target.closest("[data-add-to-cart]");

@@ -133,12 +133,12 @@ const appMarkup = `
     <section class="view" id="productos">
       <div class="panel">
         <h2>Carga masiva de productos</h2>
-        <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, producto, precio.</p>
+        <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, producto, precio. La columna categoria es opcional.</p>
         <p class="muted">Si volves a importar la lista, los productos con el mismo codigo se actualizan. Si un nombre ya existe con otro codigo, se avisa antes de confirmar.</p>
         <div class="sample-format">
-          <code>codigo | producto | precio</code>
-          <code>FER001 | Martillo cabo madera | 4500</code>
-          <code>BIC010 | Camara rodado 29 | 3800</code>
+          <code>codigo | producto | precio | categoria</code>
+          <code>FER001 | Martillo cabo madera | 4500 | Ferretería</code>
+          <code>BIC010 | Camara rodado 29 | 3800 | Bicicletas</code>
         </div>
         <label class="file-button full">Importar Excel<input id="importProducts" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" type="file" /></label>
         <div id="productImportPreview" class="import-preview hidden">
@@ -166,6 +166,10 @@ const appMarkup = `
             <label>Precio<input id="editProductPrice" inputmode="numeric" min="0" step="1" type="number" /></label>
           </div>
           <label>Descripción<input id="editProductDescription" type="text" /></label>
+          <label>Categoría
+            <input id="editProductCategory" type="text" list="categoryOptions" placeholder="Ej: Bicicletas" />
+            <datalist id="categoryOptions"></datalist>
+          </label>
           <button class="primary full" type="submit">Guardar cambios</button>
         </form>
       </div>
@@ -292,8 +296,19 @@ const appMarkup = `
     <section class="view" id="catalogo">
       <div class="catalog-layout">
         <div class="catalog-main">
-          <input id="catalogSearch" type="search" placeholder="Buscar por nombre o codigo..." class="catalog-search" />
+          <div class="catalog-controls">
+            <input id="catalogSearch" type="search" placeholder="Buscar por nombre o código..." class="catalog-search" />
+            <select id="catalogSort" class="catalog-sort">
+              <option value="alpha">A → Z</option>
+              <option value="alpha-desc">Z → A</option>
+              <option value="price-asc">Precio ↑</option>
+              <option value="price-desc">Precio ↓</option>
+              <option value="popular">Más vendidos</option>
+            </select>
+          </div>
+          <div id="catalogCategories" class="catalog-categories"></div>
           <div id="catalogGrid" class="catalog-grid"></div>
+          <div id="catalogPagination" class="catalog-pagination"></div>
         </div>
         <aside id="cartPanel" class="cart-panel">
           <h2 class="cart-title">Carrito</h2>
