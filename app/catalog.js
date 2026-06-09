@@ -53,6 +53,18 @@ export function cartItemCount() {
   return cart.reduce((sum, item) => sum + item.qty, 0);
 }
 
+// Removes items whose product was deleted; refreshes prices to current catalog values.
+export function sanitizeCartAgainstProducts(products) {
+  const productMap = new Map(products.map((p) => [p.code, p]));
+  const before = cart.length;
+  cart = cart.filter((item) => productMap.has(item.code));
+  cart.forEach((item) => {
+    const product = productMap.get(item.code);
+    if (product) item.price = product.price;
+  });
+  if (cart.length !== before || products.length) saveCartToSession();
+}
+
 // Receives already-filtered, sorted and paginated products
 export function renderCatalogGrid(products, money, escapeHtml) {
   if (!products.length) {

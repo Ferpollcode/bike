@@ -4,7 +4,7 @@ import { loadSession, saveSession, clearSession, tryLogin, isOwner, isCustomer }
 import {
   getCart, clearCart, addToCart, removeFromCart, updateCartQty,
   cartTotal, cartItemCount, renderCatalogGrid, renderCartItems,
-  renderCategoryChips, renderPagination
+  renderCategoryChips, renderPagination, sanitizeCartAgainstProducts
 } from "./catalog";
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -678,7 +678,10 @@ function saveReceipt() {
 
   if (existingReceipt) {
     state.receipts = state.receipts.map((item) => item.id === existingReceipt.id ? receipt : item);
-    state.ledger = state.ledger.filter((entry) => entry.receiptId !== existingReceipt.id);
+    state.ledger = state.ledger.filter((entry) =>
+      entry.receiptId !== existingReceipt.id &&
+      entry.note !== `Comprobante ${existingReceipt.number}`
+    );
   } else {
     state.receipts.push(receipt);
   }
@@ -1319,8 +1322,17 @@ function confirmProductImport() {
   }
 
   const byCode = new Map(state.products.map((product) => [normalizeCode(product.code), product]));
-  imported.forEach((product) => byCode.set(normalizeCode(product.code), product));
+  imported.forEach((product) => {
+    const existing = byCode.get(normalizeCode(product.code));
+    // Preserve existing category if the new import has no categoria column
+    if (existing && !product.category && existing.category) {
+      byCode.set(normalizeCode(product.code), { ...product, category: existing.category });
+    } else {
+      byCode.set(normalizeCode(product.code), product);
+    }
+  });
   state.products = Array.from(byCode.values());
+  sanitizeCartAgainstProducts(state.products);
   const importedCount = imported.length;
   const issueCount = pendingProductImport.issues.length;
   pendingProductImport = null;
@@ -1372,6 +1384,7 @@ function saveProductEdit(event) {
   }
   const newCategory = ($("#editProductCategory")?.value || "").trim();
   state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory };
+  sanitizeCartAgainstProducts(state.products);
   editingProductCode = null;
   $("#productEditPanel").classList.add("hidden");
   saveState();
@@ -1383,6 +1396,7 @@ function deleteProduct(code) {
   if (!product) return;
   if (!confirm(`¿Borrar "${product.description}"?`)) return;
   state.products = state.products.filter((p) => normalizeCode(p.code) !== normalizeCode(code));
+  sanitizeCartAgainstProducts(state.products);
   if (editingProductCode && normalizeCode(editingProductCode) === normalizeCode(code)) {
     editingProductCode = null;
     $("#productEditPanel").classList.add("hidden");
@@ -1868,6 +1882,9 @@ function renderCatalog() {
   const grid = $("#catalogGrid");
   if (!grid) return;
 
+  const categories = [...new Set(state.products.map((p) => p.category || "").filter(Boolean))].sort();
+  if (catalogCategory && !categories.includes(catalogCategory)) catalogCategory = "";
+
   const term = ($("#catalogSearch")?.value || "").toLowerCase().trim();
 
   let products = state.products.filter((p) => {
@@ -1891,7 +1908,6 @@ function renderCatalog() {
   if (catalogPage > totalPages) catalogPage = totalPages;
   const pageProducts = products.slice((catalogPage - 1) * CATALOG_PAGE_SIZE, catalogPage * CATALOG_PAGE_SIZE);
 
-  const categories = [...new Set(state.products.map((p) => p.category || "").filter(Boolean))].sort();
 
   grid.innerHTML = renderCatalogGrid(pageProducts, money, escapeHtml);
 
@@ -2177,6 +2193,7 @@ export async function initBiciferApp() {
   bindConnectivityEvents();
   supabase = createSupabaseBrowserClient();
   state = await loadState();
+  sanitizeCartAgainstProducts(state.products);
   currentReceipt = null;
   editingReceiptId = null;
   editingCustomerId = null;
