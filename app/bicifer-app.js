@@ -4,7 +4,8 @@ import { loadSession, saveSession, clearSession, tryLogin, hashPassword, isOwner
 import {
   getCart, clearCart, addToCart, removeFromCart, updateCartQty,
   cartTotal, cartItemCount, renderCatalogGrid, renderCartItems,
-  renderCategoryChips, renderPagination, sanitizeCartAgainstProducts
+  renderCategoryChips, renderPagination, sanitizeCartAgainstProducts,
+  initCartForCustomer
 } from "./catalog";
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -26,6 +27,7 @@ const defaultState = {
   customers: [],
   products: [],
   receipts: [],
+  carts: {},
   ledger: []
 };
 
@@ -2048,6 +2050,7 @@ function bindCatalogEvents() {
       const newTotal = getCart().find((i) => i.code === code)?.qty || inputQty;
       if (qtyInput) qtyInput.value = newTotal;
       renderCartPanels();
+      persistCart();
     }
   });
 
@@ -2078,6 +2081,7 @@ function bindCatalogEvents() {
 
     renderCartPanels();
     renderCatalog();
+    persistCart();
   };
 
   on("#cartItems", "click", handleCartAction);
@@ -2128,6 +2132,7 @@ function bindCatalogEvents() {
 
     const receipt = buildAndSaveReceipt({ customerId, date, condition, items });
     clearCart();
+    persistCart();
     renderCartPanels();
     $("#checkoutModal")?.classList.add("hidden");
     openReceipt(receipt.id);
@@ -2177,10 +2182,20 @@ function showLogin() {
   $("main.app-shell")?.classList.add("hidden");
 }
 
+function persistCart() {
+  if (!session?.customerId) return;
+  state.carts = { ...state.carts, [session.customerId]: getCart() };
+  saveState();
+}
+
 function showApp() {
   $("#loginScreen")?.classList.add("hidden");
   document.querySelector(".app-header")?.classList.remove("hidden");
   $("main.app-shell")?.classList.remove("hidden");
+  if (session?.customerId) {
+    initCartForCustomer(session.customerId, state.carts?.[session.customerId]);
+    sanitizeCartAgainstProducts(state.products);
+  }
   applyRoleUI();
   render();
 }

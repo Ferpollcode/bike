@@ -1,12 +1,13 @@
-const CART_SESSION_KEY = "bicifer-cart-v1";
+const CART_KEY_BASE = "bicifer-cart-v1";
+let cartKey = CART_KEY_BASE;
 
 function saveCartToSession() {
-  try { localStorage.setItem(CART_SESSION_KEY, JSON.stringify(cart)); } catch {}
+  try { localStorage.setItem(cartKey, JSON.stringify(cart)); } catch {}
 }
 
 let cart = (() => {
   try {
-    const saved = localStorage.getItem(CART_SESSION_KEY);
+    const saved = localStorage.getItem(cartKey);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) return parsed;
@@ -14,6 +15,25 @@ let cart = (() => {
   } catch {}
   return [];
 })();
+
+// Call after login to scope the cart to the customer and seed from server data.
+// serverItems (from state.carts[customerId]) take precedence when non-empty.
+export function initCartForCustomer(customerId, serverItems) {
+  cartKey = customerId ? `${CART_KEY_BASE}:${customerId}` : CART_KEY_BASE;
+  if (Array.isArray(serverItems) && serverItems.length > 0) {
+    cart = serverItems;
+    saveCartToSession();
+    return;
+  }
+  try {
+    const saved = localStorage.getItem(cartKey);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) { cart = parsed; return; }
+    }
+  } catch {}
+  cart = [];
+}
 
 export function getCart() { return cart; }
 
