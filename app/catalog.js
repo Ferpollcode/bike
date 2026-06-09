@@ -1,12 +1,12 @@
 const CART_SESSION_KEY = "bicifer-cart-v1";
 
 function saveCartToSession() {
-  try { sessionStorage.setItem(CART_SESSION_KEY, JSON.stringify(cart)); } catch {}
+  try { localStorage.setItem(CART_SESSION_KEY, JSON.stringify(cart)); } catch {}
 }
 
 let cart = (() => {
   try {
-    const saved = sessionStorage.getItem(CART_SESSION_KEY);
+    const saved = localStorage.getItem(CART_SESSION_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) return parsed;
