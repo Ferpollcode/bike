@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>BiciFer Remitos</title>
-    <link rel="stylesheet" href="assets/css/styles.css" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=2" />
   </head>
   <body>
     <header class="app-header">
@@ -64,9 +64,11 @@
           </div>
           <label>
             Buscar producto cargado
-            <input id="productPicker" list="productsDatalist" type="search" placeholder="Codigo o descripcion" />
+            <span class="product-picker-wrap">
+              <input id="productPicker" type="search" placeholder="Codigo o descripcion" autocomplete="off" />
+              <span id="productDropdown" class="product-dropdown hidden"></span>
+            </span>
           </label>
-          <datalist id="productsDatalist"></datalist>
           <div id="saleLines" class="lines"></div>
           <div class="total-row">
             <span>Total</span>
@@ -193,6 +195,6 @@
       </div>
     </div>
 
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/app.js?v=2"></script>
   </body>
 </html>

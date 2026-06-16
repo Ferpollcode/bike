@@ -446,6 +446,52 @@ textarea {
   font-weight: 700;
 }
 
+.product-picker-wrap {
+  position: relative;
+  display: block;
+}
+
+.product-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.product-dropdown.hidden {
+  display: none;
+}
+
+.product-dropdown-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.product-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.product-dropdown-item:active {
+  background: #eef8f7;
+}
+
+.product-dropdown-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .file-button {
   display: inline-flex;
   align-items: center;

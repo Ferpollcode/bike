@@ -135,17 +135,12 @@ function renderCustomers() {
 function renderProducts() {
   const productSearch = $("#productSearch");
   const productsList = $("#productsList");
-  const productsDatalist = $("#productsDatalist");
-  if (!productSearch || !productsList || !productsDatalist) return;
+  if (!productSearch || !productsList) return;
 
   const term = productSearch.value.toLowerCase().trim();
   const products = state.products
     .filter((product) => `${product.code} ${product.description}`.toLowerCase().includes(term))
     .sort((a, b) => a.description.localeCompare(b.description));
-
-  productsDatalist.innerHTML = state.products
-    .map((product) => `<option value="${escapeHtml(product.code)} - ${escapeHtml(product.description)} - ${money(product.price)}"></option>`)
-    .join("");
 
   productsList.innerHTML = products.length
     ? products
@@ -234,7 +229,7 @@ function renderSettings() {
   $("#bizFooter").value = state.settings.bizFooter || "";
 }
 
-function addSaleLine(item = {}) {
+function addSaleLine(item = {}, prepend = false) {
   const line = document.createElement("div");
   line.className = "line-item";
   line.innerHTML = `
@@ -243,7 +238,11 @@ function addSaleLine(item = {}) {
     <label>Precio<input class="item-price" inputmode="decimal" min="0" step="0.01" type="number" value="${item.price || ""}" /></label>
     <button class="remove-line" type="button">X</button>
   `;
-  $("#saleLines").appendChild(line);
+  if (prepend) {
+    $("#saleLines").prepend(line);
+  } else {
+    $("#saleLines").appendChild(line);
+  }
   updateSaleTotal();
 }
 
@@ -252,7 +251,7 @@ function addProductToSale(product) {
     name: `${product.code} - ${product.description}`,
     qty: 1,
     price: product.price
-  });
+  }, true);
 }
 
 function getSaleItems() {
@@ -744,7 +743,7 @@ function bindEvents() {
   $$(".menu-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$(".back-home").forEach((button) => button.addEventListener("click", () => switchView("inicio")));
 
-  $("#addLine").addEventListener("click", () => addSaleLine());
+  $("#addLine").addEventListener("click", () => addSaleLine({}, true));
   $("#saleLines").addEventListener("input", updateSaleTotal);
   $("#saleLines").addEventListener("click", (event) => {
     if (!event.target.classList.contains("remove-line")) return;
@@ -775,12 +774,53 @@ function bindEvents() {
   $("#accountCustomer").addEventListener("change", renderAccount);
   $("#receiptSearch").addEventListener("input", renderReceipts);
   $("#productSearch").addEventListener("input", renderProducts);
-  $("#productPicker").addEventListener("change", () => {
-    const code = $("#productPicker").value.split(" - ")[0];
-    const product = state.products.find((item) => item.code === code);
+  const productPicker = $("#productPicker");
+  const productDropdown = $("#productDropdown");
+
+  function updateProductDropdown() {
+    const term = productPicker.value.toLowerCase().trim();
+    if (!term) {
+      productDropdown.classList.add("hidden");
+      return;
+    }
+    const matches = state.products
+      .filter((p) => `${p.code} ${p.description}`.toLowerCase().includes(term))
+      .slice(0, 25);
+    if (!matches.length) {
+      productDropdown.innerHTML = `<div class="product-dropdown-empty">Sin resultados</div>`;
+      productDropdown.classList.remove("hidden");
+      return;
+    }
+    productDropdown.innerHTML = matches
+      .map((p) => `<div class="product-dropdown-item" data-code="${escapeHtml(p.code)}"><strong>${escapeHtml(p.description)}</strong> &mdash; ${money(p.price)}<br><small class="muted">${escapeHtml(p.code)}</small></div>`)
+      .join("");
+    productDropdown.classList.remove("hidden");
+  }
+
+  productPicker.addEventListener("input", updateProductDropdown);
+  productPicker.addEventListener("focus", updateProductDropdown);
+  productPicker.addEventListener("blur", () => {
+    setTimeout(() => productDropdown.classList.add("hidden"), 200);
+  });
+  productDropdown.addEventListener("mousedown", (e) => {
+    const item = e.target.closest(".product-dropdown-item");
+    if (!item) return;
+    e.preventDefault();
+    const product = state.products.find((p) => p.code === item.dataset.code);
     if (!product) return;
     addProductToSale(product);
-    $("#productPicker").value = "";
+    productPicker.value = "";
+    productDropdown.classList.add("hidden");
+  });
+  productDropdown.addEventListener("touchstart", (e) => {
+    const item = e.target.closest(".product-dropdown-item");
+    if (!item) return;
+    const product = state.products.find((p) => p.code === item.dataset.code);
+    if (!product) return;
+    addProductToSale(product);
+    productPicker.value = "";
+    productDropdown.classList.add("hidden");
+    productPicker.blur();
   });
 
   $("#savePayment").addEventListener("click", () => {
