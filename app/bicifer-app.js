@@ -13,6 +13,7 @@ const STORAGE_KEY = "bicifer-remitos-v1";
 const PENDING_SYNC_KEY = `${STORAGE_KEY}-pending-sync`;
 const SUPABASE_TABLE = "app_state";
 const SUPABASE_ROW_ID = "bicifer-remitos";
+const PRODUCT_PHOTOS_BUCKET = "product-photos";
 
 const defaultState = {
   settings: {
@@ -380,6 +381,19 @@ function normalizeCode(value) {
 
 function normalizeDesc(value) {
   return String(value || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function productPhotoPath(code, fileName) {
+  const ext = (String(fileName || "").split(".").pop() || "jpg").toLowerCase();
+  return `${normalizeCode(code)}.${ext}`;
+}
+
+function productPhotoPathFromUrl(url) {
+  if (!url) return null;
+  const marker = `/object/public/${PRODUCT_PHOTOS_BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx < 0) return null;
+  return url.slice(idx + marker.length);
 }
 
 function parseProductsFromRows(rows) {
