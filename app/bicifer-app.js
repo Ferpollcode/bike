@@ -43,6 +43,7 @@ let syncInProgress = false;
 let pendingProductImport = null;
 let analyticsChart = null;
 let analyticsPeriod = "mes";
+let analyticsAsOfDate = today();
 let editingProductCode = null;
 let catalogPage = 1;
 let catalogSort = "alpha";
@@ -1670,6 +1671,11 @@ function bindEvents() {
     renderAnalytics();
   });
 
+  on("#saldoDeudorAsOf", "change", (event) => {
+    analyticsAsOfDate = event.target.value || today();
+    renderAnalytics();
+  });
+
   on("#productsList", "click", (event) => {
     const editCode = event.target.dataset.editProduct;
     const deleteCode = event.target.dataset.deleteProduct;
@@ -1893,8 +1899,11 @@ function computeAnalytics(period) {
   const ingresadoCaja = contadoTotal - pagosTotal;
   // Sales on account add a positive amount to the ledger and payments subtract,
   // so a customer who owes money has balance > 0 (see getBalance/getBalanceAsOf).
+  // Uses its own cutoff date (analyticsAsOfDate), not the mes/30d/año/todo period:
+  // those are rolling windows that always end today, so they can't express "debt as of a past date".
+  const asOfDate = analyticsAsOfDate || today();
   const saldoDeudorTotal = state.customers.reduce((sum, c) => {
-    const b = getBalanceAsOf(c.id, end);
+    const b = getBalanceAsOf(c.id, asOfDate);
     return sum + (b > 0 ? b : 0);
   }, 0);
 
@@ -1930,7 +1939,7 @@ function computeAnalytics(period) {
     });
 
   const topByDeuda = state.customers
-    .map((c) => ({ name: c.name, balance: getBalanceAsOf(c.id, end) }))
+    .map((c) => ({ name: c.name, balance: getBalanceAsOf(c.id, asOfDate) }))
     .filter((c) => c.balance > 0)
     .sort((a, b) => b.balance - a.balance)
     .slice(0, 5)
@@ -1972,6 +1981,8 @@ function renderAnalytics() {
   if (kpiIngresado) kpiIngresado.textContent = money(a.ingresadoCaja);
   const kpiSaldoDeudor = document.getElementById("kpiSaldoDeudor");
   if (kpiSaldoDeudor) kpiSaldoDeudor.textContent = money(a.saldoDeudorTotal);
+  const saldoDeudorAsOf = document.getElementById("saldoDeudorAsOf");
+  if (saldoDeudorAsOf) saldoDeudorAsOf.value = analyticsAsOfDate;
 
   const barContado = document.getElementById("barContado");
   const barContadoLabel = document.getElementById("barContadoLabel");

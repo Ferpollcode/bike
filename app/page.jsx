@@ -238,7 +238,10 @@ const appMarkup = `
         <div class="panel kpi-card">
           <div class="kpi-label">Saldo deudor total</div>
           <div class="kpi-value kpi-danger" id="kpiSaldoDeudor">$0</div>
-          <div class="kpi-sub">todos los clientes</div>
+          <div class="kpi-sub kpi-sub-date">
+            <label for="saldoDeudorAsOf">Evaluado al</label>
+            <input type="date" id="saldoDeudorAsOf" />
+          </div>
         </div>
       </div>
 
