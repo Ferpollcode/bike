@@ -1887,8 +1887,10 @@ function computeAnalytics(period) {
   const cantidadRemitos = receiptsInPeriod.length;
   const contadoTotal = receiptsInPeriod.filter((r) => r.condition === "contado").reduce((sum, r) => sum + r.total, 0);
   const cuentaTotal = receiptsInPeriod.filter((r) => r.condition === "cuenta").reduce((sum, r) => sum + r.total, 0);
+  // Payment ledger entries are stored as a negative amount (they reduce debt),
+  // so cash actually collected via payments is -pagosTotal.
   const pagosTotal = ledgerInPeriod.filter((e) => e.type === "payment").reduce((sum, e) => sum + e.amount, 0);
-  const ingresadoCaja = contadoTotal + pagosTotal;
+  const ingresadoCaja = contadoTotal - pagosTotal;
   // Sales on account add a positive amount to the ledger and payments subtract,
   // so a customer who owes money has balance > 0 (see getBalance/getBalanceAsOf).
   const saldoDeudorTotal = state.customers.reduce((sum, c) => {
