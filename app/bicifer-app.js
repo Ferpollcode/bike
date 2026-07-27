@@ -1514,6 +1514,59 @@ function cancelProductImport() {
   renderProductImportPreview();
 }
 
+const MAX_PRODUCT_PHOTO_BYTES = 5 * 1024 * 1024;
+
+async function uploadProductPhoto(code, file) {
+  if (!supabase) {
+    alert("No se pudo conectar con el almacenamiento de fotos.");
+    return null;
+  }
+  if (file.size > MAX_PRODUCT_PHOTO_BYTES) {
+    alert("La foto no puede pesar más de 5 MB.");
+    return null;
+  }
+  const path = productPhotoPath(code, file.name);
+  try {
+    const { error } = await supabase.storage
+      .from(PRODUCT_PHOTOS_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+    if (error) {
+      console.warn("No se pudo subir la foto.", error);
+      alert("No se pudo subir la foto. Probá de nuevo.");
+      return null;
+    }
+    const { data } = supabase.storage.from(PRODUCT_PHOTOS_BUCKET).getPublicUrl(path);
+    return data?.publicUrl ? `${data.publicUrl}?v=${Date.now()}` : null;
+  } catch (error) {
+    console.warn("No se pudo subir la foto.", error);
+    alert("No se pudo subir la foto. Probá de nuevo.");
+    return null;
+  }
+}
+
+async function deleteProductPhoto(photoUrl) {
+  if (!supabase || !photoUrl) return;
+  const path = productPhotoPathFromUrl(photoUrl);
+  if (!path) return;
+  try {
+    await supabase.storage.from(PRODUCT_PHOTOS_BUCKET).remove([path]);
+  } catch (error) {
+    console.warn("No se pudo borrar la foto anterior.", error);
+  }
+}
+
+function renderProductPhotoPreview(url) {
+  const preview = $("#productPhotoPreview");
+  if (!preview) return;
+  if (url) {
+    preview.src = url;
+    preview.classList.remove("hidden");
+  } else {
+    preview.src = "";
+    preview.classList.add("hidden");
+  }
+}
+
 function loadProductForEdit(code) {
   const product = state.products.find((p) => normalizeCode(p.code) === normalizeCode(code));
   if (!product) return;
@@ -1529,6 +1582,8 @@ function loadProductForEdit(code) {
       datalist.innerHTML = categories.map((c) => `<option value="${escapeHtml(c)}">`).join("");
     }
   }
+  $("#editProductLongDescription").value = product.longDescription || "";
+  renderProductPhotoPreview(product.photoUrl || null);
   $("#productEditPanel").classList.remove("hidden");
   $("#productEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1550,7 +1605,8 @@ function saveProductEdit(event) {
     return;
   }
   const newCategory = ($("#editProductCategory")?.value || "").trim();
-  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory, updatedAt: Date.now() };
+  const newLongDescription = $("#editProductLongDescription").value.trim();
+  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory, longDescription: newLongDescription, updatedAt: Date.now() };
   unmarkDeleted("products", newCode);
   sanitizeCartAgainstProducts(state.products);
   editingProductCode = null;
@@ -1565,6 +1621,7 @@ function deleteProduct(code) {
   if (!confirm(`¿Borrar "${product.description}"?`)) return;
   state.products = state.products.filter((p) => normalizeCode(p.code) !== normalizeCode(code));
   markDeleted("products", normalizeCode(code));
+  deleteProductPhoto(product.photoUrl);
   sanitizeCartAgainstProducts(state.products);
   if (editingProductCode && normalizeCode(editingProductCode) === normalizeCode(code)) {
     editingProductCode = null;
@@ -1697,6 +1754,22 @@ function bindEvents() {
     if (deleteCode) deleteProduct(deleteCode);
   });
   on("#productEditForm", "submit", saveProductEdit);
+  on("#editProductPhoto", "change", async (event) => {
+    const file = event.target.files[0];
+    if (!file || !editingProductCode) {
+      event.target.value = "";
+      return;
+    }
+    const url = await uploadProductPhoto(editingProductCode, file);
+    event.target.value = "";
+    if (!url) return;
+    const idx = state.products.findIndex((p) => normalizeCode(p.code) === normalizeCode(editingProductCode));
+    if (idx < 0) return;
+    state.products[idx] = { ...state.products[idx], photoUrl: url, updatedAt: Date.now() };
+    saveState();
+    renderProductPhotoPreview(url);
+    render();
+  });
   on("#cancelProductEdit", "click", () => {
     editingProductCode = null;
     $("#productEditPanel").classList.add("hidden");

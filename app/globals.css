@@ -566,6 +566,18 @@ textarea {
   display: none;
 }
 
+.product-photo-preview {
+  width: 100%;
+  max-width: 200px;
+  border-radius: 8px;
+  margin: 4px 0 10px;
+  display: block;
+}
+
+.product-photo-preview.hidden {
+  display: none;
+}
+
 .sample-format {
   display: grid;
   gap: 6px;

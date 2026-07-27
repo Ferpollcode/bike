@@ -170,6 +170,9 @@ const appMarkup = `
             <input id="editProductCategory" type="text" list="categoryOptions" placeholder="Ej: Bicicletas" />
             <datalist id="categoryOptions"></datalist>
           </label>
+          <label>Descripción larga (opcional)<textarea id="editProductLongDescription" rows="3"></textarea></label>
+          <label class="file-button">Subir foto<input id="editProductPhoto" type="file" accept="image/*" /></label>
+          <img id="productPhotoPreview" class="product-photo-preview hidden" alt="Vista previa de la foto" />
           <button class="primary full" type="submit">Guardar cambios</button>
         </form>
       </div>
