@@ -28,7 +28,8 @@ const defaultState = {
   products: [],
   receipts: [],
   carts: {},
-  ledger: []
+  ledger: [],
+  deletedIds: { customers: [], products: [], receipts: [], ledger: [] }
 };
 
 let state = structuredClone(defaultState);
@@ -96,35 +97,110 @@ function createSupabaseBrowserClient() {
   return createClient(url, key);
 }
 
-async function loadState() {
-  const fallback = localState() || structuredClone(defaultState);
-  if (!supabase) return fallback;
+// Merges two versions of the same collection by id, keeping every record
+// present on either side (so one device's overwrite can't erase another's
+// data) and picking the newer copy when the same id exists on both.
+function mergeById(localArr, remoteArr, idKey) {
+  const map = new Map();
+  (remoteArr || []).forEach((item) => map.set(item[idKey], item));
+  (localArr || []).forEach((item) => {
+    const existing = map.get(item[idKey]);
+    if (!existing) {
+      map.set(item[idKey], item);
+      return;
+    }
+    const existingTime = existing.updatedAt || existing.createdAt || 0;
+    const itemTime = item.updatedAt || item.createdAt || 0;
+    map.set(item[idKey], itemTime >= existingTime ? item : existing);
+  });
+  return [...map.values()];
+}
 
-  if (hasPendingSync()) {
-    flushPendingSync();
-    return fallback;
+function unionIds(a, b) {
+  return [...new Set([...(a || []), ...(b || [])])];
+}
+
+// Combines a local and a remote copy of the whole app state instead of one
+// blindly overwriting the other. Deletions are tracked as tombstones
+// (deletedIds) so a record removed on one device doesn't reappear when
+// merged with another device that hasn't seen the deletion yet.
+function mergeStates(local, remote) {
+  if (!remote) return local;
+  if (!local) return remote;
+
+  const deletedIds = {
+    customers: unionIds(local.deletedIds?.customers, remote.deletedIds?.customers),
+    products: unionIds(local.deletedIds?.products, remote.deletedIds?.products),
+    receipts: unionIds(local.deletedIds?.receipts, remote.deletedIds?.receipts),
+    ledger: unionIds(local.deletedIds?.ledger, remote.deletedIds?.ledger)
+  };
+
+  const customers = mergeById(local.customers, remote.customers, "id")
+    .filter((c) => !deletedIds.customers.includes(c.id));
+  const products = mergeById(local.products, remote.products, "code")
+    .filter((p) => !deletedIds.products.includes(p.code));
+  const receipts = mergeById(local.receipts, remote.receipts, "id")
+    .filter((r) => !deletedIds.receipts.includes(r.id));
+  const ledger = mergeById(local.ledger, remote.ledger, "id")
+    .filter((e) => !deletedIds.ledger.includes(e.id));
+
+  return {
+    settings: {
+      ...remote.settings,
+      ...local.settings,
+      nextNumber: Math.max(remote.settings?.nextNumber || 1, local.settings?.nextNumber || 1)
+    },
+    customers,
+    products,
+    receipts,
+    ledger,
+    carts: { ...remote.carts, ...local.carts },
+    deletedIds
+  };
+}
+
+function markDeleted(collection, id) {
+  if (!state.deletedIds[collection].includes(id)) {
+    state.deletedIds[collection].push(id);
   }
+}
 
+function unmarkDeleted(collection, id) {
+  state.deletedIds[collection] = state.deletedIds[collection].filter((existing) => existing !== id);
+}
+
+async function fetchRemoteState() {
+  if (!supabase) return { data: null, ok: false };
   const { data, error } = await supabase
     .from(SUPABASE_TABLE)
     .select("data")
     .eq("id", SUPABASE_ROW_ID)
     .maybeSingle();
-
   if (error) {
     console.warn("No se pudo leer Supabase. Se usa respaldo local.", error);
-    return fallback;
+    return { data: null, ok: false };
+  }
+  return { data: data?.data || null, ok: true };
+}
+
+async function loadState() {
+  const fallback = localState() || structuredClone(defaultState);
+  if (!supabase) return fallback;
+
+  const { data: remote, ok } = await fetchRemoteState();
+  if (!ok) return fallback;
+
+  const merged = { ...structuredClone(defaultState), ...mergeStates(fallback, remote) };
+  saveLocalState(merged);
+
+  if (!remote || hasPendingSync()) {
+    const synced = await saveStateToSupabase(merged);
+    setPendingSync(!synced);
+  } else {
+    setPendingSync(false);
   }
 
-  if (!data?.data) {
-    await saveStateToSupabase(fallback);
-    return fallback;
-  }
-
-  const loaded = { ...structuredClone(defaultState), ...data.data };
-  saveLocalState(loaded);
-  setPendingSync(false);
-  return loaded;
+  return merged;
 }
 
 async function saveStateToSupabase(nextState) {
@@ -147,21 +223,63 @@ async function saveStateToSupabase(nextState) {
   }
 }
 
+// Pulls the latest remote state, merges it with whatever this device hasn't
+// synced yet, and pushes the merged result back — instead of pushing this
+// device's local copy over whatever other devices already saved.
 async function flushPendingSync() {
-  if (syncInProgress || !hasPendingSync()) return;
-  const pendingState = localState();
-  if (!pendingState) {
-    setPendingSync(false);
-    return;
-  }
-
+  if (syncInProgress || !hasPendingSync() || !supabase) return;
   syncInProgress = true;
   try {
-    const synced = await saveStateToSupabase(pendingState);
-    if (!synced) setPendingSync(true);
+    const { data: remote, ok } = await fetchRemoteState();
+    if (!ok) return;
+
+    const merged = mergeStates(state, remote);
+    const synced = await saveStateToSupabase(merged);
+    if (synced) {
+      state = merged;
+      saveLocalState(state);
+      setPendingSync(false);
+      render();
+    } else {
+      setPendingSync(true);
+    }
   } finally {
     syncInProgress = false;
   }
+}
+
+// For devices that made no local edits: still periodically pick up changes
+// other devices already synced, so open tabs don't silently drift out of date.
+async function pullRemoteAndMerge() {
+  if (!supabase || syncInProgress || hasPendingSync()) return;
+  const { data: remote, ok } = await fetchRemoteState();
+  if (!ok || !remote) return;
+
+  const merged = mergeStates(state, remote);
+  if (JSON.stringify(merged) === JSON.stringify(state)) return;
+  state = merged;
+  saveLocalState(state);
+  render();
+}
+
+function subscribeToRemoteChanges() {
+  if (!supabase) return;
+  supabase
+    .channel("app_state_changes")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: SUPABASE_TABLE, filter: `id=eq.${SUPABASE_ROW_ID}` },
+      (payload) => {
+        const remote = payload.new?.data;
+        if (!remote) return;
+        const merged = mergeStates(state, remote);
+        if (JSON.stringify(merged) === JSON.stringify(state)) return;
+        state = merged;
+        saveLocalState(state);
+        render();
+      }
+    )
+    .subscribe();
 }
 
 function saveState() {
@@ -172,11 +290,15 @@ function saveState() {
 }
 
 function bindConnectivityEvents() {
-  window.addEventListener("online", flushPendingSync);
+  const sync = () => {
+    flushPendingSync();
+    pullRemoteAndMerge();
+  };
+  window.addEventListener("online", sync);
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) flushPendingSync();
+    if (!document.hidden) sync();
   });
-  window.setInterval(flushPendingSync, 30000);
+  window.setInterval(sync, 30000);
 }
 
 function registerServiceWorker() {
@@ -465,6 +587,14 @@ function getBalance(customerId) {
     .reduce((total, entry) => total + entry.amount, 0);
 }
 
+// Same as getBalance but only counts movements up to a given date, so debt
+// can be evaluated as of the end of a chosen period instead of always "today".
+function getBalanceAsOf(customerId, endDate) {
+  return state.ledger
+    .filter((entry) => entry.customerId === customerId && entry.date <= endDate)
+    .reduce((total, entry) => total + entry.amount, 0);
+}
+
 function renderAccount() {
   const customerId = $("#accountCustomer").value || state.customers[0]?.id || "";
   if (customerId) $("#accountCustomer").value = customerId;
@@ -592,6 +722,7 @@ function saveCustomer({ name, phone = "", address = "", username = "", password 
     existing.address = address.trim();
     existing.username = username.trim();
     existing.password = password.trim();
+    existing.updatedAt = Date.now();
     editingCustomerId = null;
     $("#customerForm").reset();
     $("#customerPhone").value = "549";
@@ -608,7 +739,8 @@ function saveCustomer({ name, phone = "", address = "", username = "", password 
     address: address.trim(),
     username: username.trim(),
     password: password.trim(),
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    updatedAt: Date.now()
   };
   state.customers.push(customer);
   saveState();
@@ -642,6 +774,7 @@ function deleteCustomer(customerId) {
 
   if (!confirm(`¿Borrar el cliente ${customer.name}?`)) return;
   state.customers = state.customers.filter((item) => item.id !== customerId);
+  markDeleted("customers", customerId);
   if (editingCustomerId === customerId) {
     editingCustomerId = null;
     $("#customerForm").reset();
@@ -677,15 +810,23 @@ function saveReceipt() {
     notes: $("#saleNotes").value.trim(),
     items,
     total: saleTotal(items),
-    createdAt: existingReceipt?.createdAt || Date.now()
+    createdAt: existingReceipt?.createdAt || Date.now(),
+    updatedAt: Date.now()
   };
 
   if (existingReceipt) {
     state.receipts = state.receipts.map((item) => item.id === existingReceipt.id ? receipt : item);
+    const removedLedgerIds = state.ledger
+      .filter((entry) =>
+        entry.receiptId === existingReceipt.id ||
+        entry.note === `Comprobante ${existingReceipt.number}`
+      )
+      .map((entry) => entry.id);
     state.ledger = state.ledger.filter((entry) =>
       entry.receiptId !== existingReceipt.id &&
       entry.note !== `Comprobante ${existingReceipt.number}`
     );
+    removedLedgerIds.forEach((id) => markDeleted("ledger", id));
   } else {
     state.receipts.push(receipt);
   }
@@ -740,8 +881,13 @@ function deleteReceipt(receiptId) {
   if (!receipt) return;
   if (!confirm(`¿Borrar el comprobante ${receipt.number}?`)) return;
 
+  const removedLedgerIds = state.ledger
+    .filter((entry) => entry.receiptId === receiptId)
+    .map((entry) => entry.id);
   state.receipts = state.receipts.filter((item) => item.id !== receiptId);
   state.ledger = state.ledger.filter((entry) => entry.receiptId !== receiptId);
+  markDeleted("receipts", receiptId);
+  removedLedgerIds.forEach((id) => markDeleted("ledger", id));
   if (editingReceiptId === receiptId) {
     editingReceiptId = null;
     $("#saveSale").textContent = "Guardar y generar comprobante";
@@ -1327,13 +1473,15 @@ function confirmProductImport() {
 
   const byCode = new Map(state.products.map((product) => [normalizeCode(product.code), product]));
   imported.forEach((product) => {
-    const existing = byCode.get(normalizeCode(product.code));
+    const code = normalizeCode(product.code);
+    const existing = byCode.get(code);
     // Preserve existing category if the new import has no categoria column
     if (existing && !product.category && existing.category) {
-      byCode.set(normalizeCode(product.code), { ...product, category: existing.category });
+      byCode.set(code, { ...product, category: existing.category, updatedAt: Date.now() });
     } else {
-      byCode.set(normalizeCode(product.code), product);
+      byCode.set(code, { ...product, updatedAt: Date.now() });
     }
+    unmarkDeleted("products", code);
   });
   state.products = Array.from(byCode.values());
   sanitizeCartAgainstProducts(state.products);
@@ -1387,7 +1535,8 @@ function saveProductEdit(event) {
     return;
   }
   const newCategory = ($("#editProductCategory")?.value || "").trim();
-  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory };
+  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory, updatedAt: Date.now() };
+  unmarkDeleted("products", newCode);
   sanitizeCartAgainstProducts(state.products);
   editingProductCode = null;
   $("#productEditPanel").classList.add("hidden");
@@ -1400,6 +1549,7 @@ function deleteProduct(code) {
   if (!product) return;
   if (!confirm(`¿Borrar "${product.description}"?`)) return;
   state.products = state.products.filter((p) => normalizeCode(p.code) !== normalizeCode(code));
+  markDeleted("products", normalizeCode(code));
   sanitizeCartAgainstProducts(state.products);
   if (editingProductCode && normalizeCode(editingProductCode) === normalizeCode(code)) {
     editingProductCode = null;
@@ -1739,9 +1889,11 @@ function computeAnalytics(period) {
   const cuentaTotal = receiptsInPeriod.filter((r) => r.condition === "cuenta").reduce((sum, r) => sum + r.total, 0);
   const pagosTotal = ledgerInPeriod.filter((e) => e.type === "payment").reduce((sum, e) => sum + e.amount, 0);
   const ingresadoCaja = contadoTotal + pagosTotal;
+  // Sales on account add a positive amount to the ledger and payments subtract,
+  // so a customer who owes money has balance > 0 (see getBalance/getBalanceAsOf).
   const saldoDeudorTotal = state.customers.reduce((sum, c) => {
-    const b = getBalance(c.id);
-    return sum + (b < 0 ? -b : 0);
+    const b = getBalanceAsOf(c.id, end);
+    return sum + (b > 0 ? b : 0);
   }, 0);
 
   const totalCondicion = contadoTotal + cuentaTotal;
@@ -1776,11 +1928,11 @@ function computeAnalytics(period) {
     });
 
   const topByDeuda = state.customers
-    .map((c) => ({ name: c.name, balance: getBalance(c.id) }))
-    .filter((c) => c.balance < 0)
-    .sort((a, b) => a.balance - b.balance)
+    .map((c) => ({ name: c.name, balance: getBalanceAsOf(c.id, end) }))
+    .filter((c) => c.balance > 0)
+    .sort((a, b) => b.balance - a.balance)
     .slice(0, 5)
-    .map((c) => ({ name: c.name, deuda: -c.balance }));
+    .map((c) => ({ name: c.name, deuda: c.balance }));
 
   return {
     totalVendido, cantidadRemitos, ingresadoCaja, saldoDeudorTotal,
@@ -2221,6 +2373,7 @@ export async function initBiciferApp() {
   bindConnectivityEvents();
   supabase = createSupabaseBrowserClient();
   state = await loadState();
+  subscribeToRemoteChanges();
   sanitizeCartAgainstProducts(state.products);
   currentReceipt = null;
   editingReceiptId = null;

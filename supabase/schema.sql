@@ -24,3 +24,7 @@ on public.app_state for update
 to anon
 using (true)
 with check (true);
+
+-- Enables live cross-device updates: without this, devices only see other
+-- devices' changes after their own next save or a full page reload.
+alter publication supabase_realtime add table public.app_state;
