@@ -1143,6 +1143,12 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  /* Header button pairs (e.g. "+ Nuevo producto" / "Vaciar") stay side by
+     side on mobile instead of stacking full-width next to the title. */
+  .section-title .inline-actions {
+    grid-template-columns: auto auto;
+  }
+
   .line-item {
     grid-template-columns: 1fr 1fr 42px;
   }
