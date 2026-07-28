@@ -99,7 +99,7 @@ export function renderCatalogGrid(products, money, escapeHtml) {
       ? `<span class="product-card-category">${escapeHtml(p.category)}</span>`
       : "";
     const photoBlock = p.photoUrl
-      ? `<img class="product-card-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.description)}" />`
+      ? `<img class="product-card-photo" loading="lazy" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.description)}" />`
       : `
         <div class="product-card-image">
           <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">

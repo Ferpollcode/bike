@@ -393,7 +393,8 @@ function productPhotoPathFromUrl(url) {
   const marker = `/object/public/${PRODUCT_PHOTOS_BUCKET}/`;
   const idx = url.indexOf(marker);
   if (idx < 0) return null;
-  return url.slice(idx + marker.length);
+  const raw = url.slice(idx + marker.length).split(/[?#]/)[0];
+  return raw ? decodeURIComponent(raw) : null;
 }
 
 function parseProductsFromRows(rows) {
