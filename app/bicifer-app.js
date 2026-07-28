@@ -2285,7 +2285,11 @@ function bindCatalogEvents() {
     const addBtn = e.target.closest("[data-add-to-cart]");
     const decBtn = e.target.closest("[data-qty-dec]");
     const incBtn = e.target.closest("[data-qty-inc]");
+    const qtyInputEl = e.target.closest("[data-qty-input]");
 
+    if (qtyInputEl) {
+      return true;
+    }
     if (decBtn) {
       const input = container.querySelector(`[data-qty-input="${decBtn.dataset.qtyDec}"]`);
       if (input) input.value = Math.max(1, parseInt(input.value || "1", 10) - 1);
