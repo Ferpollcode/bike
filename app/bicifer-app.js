@@ -416,6 +416,7 @@ function parseProductsFromRows(rows) {
   const descriptionIndex = findColumn(headers, ["producto", "descripcion", "description"]);
   const priceIndex = findColumn(headers, ["precio", "price"]);
   const categoryIndex = findColumn(headers, ["categoria", "category", "cat"]);
+  const longDescriptionIndex = findColumn(headers, ["descripcion_larga", "descripcion larga"]);
 
   if (codeIndex < 0 || descriptionIndex < 0 || priceIndex < 0) {
     return {
@@ -457,7 +458,8 @@ function parseProductsFromRows(rows) {
     }
 
     const category = categoryIndex >= 0 ? String(row[categoryIndex] || "").trim() : "";
-    products.push({ code, description, price: price ?? 0, category });
+    const longDescription = longDescriptionIndex >= 0 ? String(row[longDescriptionIndex] || "").trim() : "";
+    products.push({ code, description, price: price ?? 0, category, longDescription });
   });
 
   const byCode = new Map();
@@ -1490,12 +1492,16 @@ function confirmProductImport() {
   imported.forEach((product) => {
     const code = normalizeCode(product.code);
     const existing = byCode.get(code);
-    // Preserve existing category if the new import has no categoria column
-    if (existing && !product.category && existing.category) {
-      byCode.set(code, { ...product, category: existing.category, updatedAt: Date.now() });
-    } else {
-      byCode.set(code, { ...product, updatedAt: Date.now() });
-    }
+    const category = product.category || existing?.category || "";
+    const longDescription = product.longDescription || existing?.longDescription || "";
+    byCode.set(code, {
+      ...existing,
+      ...product,
+      category,
+      longDescription,
+      photoUrl: existing?.photoUrl || null,
+      updatedAt: Date.now()
+    });
     unmarkDeleted("products", code);
   });
   state.products = Array.from(byCode.values());
