@@ -1797,7 +1797,12 @@ function bindEvents() {
   on("#productEditForm", "submit", saveProductEdit);
   on("#editProductPhoto", "change", async (event) => {
     const file = event.target.files[0];
-    if (!file || !editingProductCode) {
+    if (!file) {
+      event.target.value = "";
+      return;
+    }
+    if (!editingProductCode) {
+      alert("Guardá el producto primero y después editalo para subirle una foto.");
       event.target.value = "";
       return;
     }
