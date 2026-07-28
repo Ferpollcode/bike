@@ -179,7 +179,10 @@ const appMarkup = `
       <div class="panel">
         <div class="section-title">
           <h2>Productos</h2>
-          <button id="clearProducts" type="button" class="danger-btn">Vaciar</button>
+          <div class="inline-actions">
+            <button id="newProduct" type="button" class="primary">+ Nuevo producto</button>
+            <button id="clearProducts" type="button" class="danger-btn">Vaciar</button>
+          </div>
         </div>
         <input id="productSearch" type="search" placeholder="Buscar producto" style="margin-top: 10px" />
       </div>

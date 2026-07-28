@@ -1574,10 +1574,22 @@ function renderProductPhotoPreview(url) {
   }
 }
 
+function openNewProductForm() {
+  editingProductCode = null;
+  $("#productEditForm").reset();
+  renderProductPhotoPreview(null);
+  $("#productEditPanel h2").textContent = "Nuevo producto";
+  $("#productEditForm button[type='submit']").textContent = "Crear producto";
+  $("#productEditPanel").classList.remove("hidden");
+  $("#productEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function loadProductForEdit(code) {
   const product = state.products.find((p) => normalizeCode(p.code) === normalizeCode(code));
   if (!product) return;
   editingProductCode = product.code;
+  $("#productEditPanel h2").textContent = "Editar producto";
+  $("#productEditForm button[type='submit']").textContent = "Guardar cambios";
   $("#editProductCode").value = product.code;
   $("#editProductDescription").value = product.description;
   $("#editProductPrice").value = product.price;
@@ -1604,6 +1616,30 @@ function saveProductEdit(event) {
     alert("El codigo y la descripcion son obligatorios.");
     return;
   }
+  const newCategory = ($("#editProductCategory")?.value || "").trim();
+  const newLongDescription = $("#editProductLongDescription").value.trim();
+
+  if (!editingProductCode) {
+    if (state.products.some((p) => normalizeCode(p.code) === newCode)) {
+      alert(`Ya existe un producto con el codigo ${newCode}.`);
+      return;
+    }
+    state.products.push({
+      code: newCode,
+      description: newDesc,
+      price: newPrice,
+      category: newCategory,
+      longDescription: newLongDescription,
+      photoUrl: null,
+      updatedAt: Date.now()
+    });
+    unmarkDeleted("products", newCode);
+    $("#productEditPanel").classList.add("hidden");
+    saveState();
+    render();
+    return;
+  }
+
   const idx = state.products.findIndex((p) => normalizeCode(p.code) === normalizeCode(editingProductCode));
   if (idx < 0) return;
   const codeChanged = newCode !== normalizeCode(editingProductCode);
@@ -1611,8 +1647,6 @@ function saveProductEdit(event) {
     alert(`Ya existe un producto con el codigo ${newCode}.`);
     return;
   }
-  const newCategory = ($("#editProductCategory")?.value || "").trim();
-  const newLongDescription = $("#editProductLongDescription").value.trim();
   state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory, longDescription: newLongDescription, updatedAt: Date.now() };
   unmarkDeleted("products", newCode);
   sanitizeCartAgainstProducts(state.products);
@@ -1781,6 +1815,7 @@ function bindEvents() {
     editingProductCode = null;
     $("#productEditPanel").classList.add("hidden");
   });
+  on("#newProduct", "click", openNewProductForm);
 
   on("#saveSale", "click", saveReceipt);
   on("#accountCustomer", "change", renderAccount);
