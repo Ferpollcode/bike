@@ -98,14 +98,19 @@ export function renderCatalogGrid(products, money, escapeHtml) {
     const categoryBadge = p.category
       ? `<span class="product-card-category">${escapeHtml(p.category)}</span>`
       : "";
-    return `
-      <article class="${cardClass}">
+    const photoBlock = p.photoUrl
+      ? `<img class="product-card-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.description)}" />`
+      : `
         <div class="product-card-image">
           <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="3"/>
             <path d="M3 9h18M9 21V9"/>
           </svg>
         </div>
+      `;
+    return `
+      <article class="${cardClass}" data-open-product="${escapeHtml(p.code)}">
+        ${photoBlock}
         ${categoryBadge}
         <p class="product-card-name">${escapeHtml(p.description)}</p>
         <p class="product-card-code">${escapeHtml(p.code)}</p>
@@ -119,6 +124,37 @@ export function renderCatalogGrid(products, money, escapeHtml) {
       </article>
     `;
   }).join("");
+}
+
+export function renderProductModal(product, money, escapeHtml) {
+  const inCart = cart.find((i) => i.code === product.code);
+  const btnText = inCart ? "Actualizar" : "Agregar";
+  const qtyValue = inCart ? inCart.qty : 1;
+  const photoBlock = product.photoUrl
+    ? `<img class="product-modal-photo" src="${escapeHtml(product.photoUrl)}" alt="${escapeHtml(product.description)}" />`
+    : `
+      <div class="product-modal-photo-placeholder">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <path d="M3 9h18M9 21V9"/>
+        </svg>
+      </div>
+    `;
+  const descriptionBlock = product.longDescription
+    ? `<p class="product-modal-description">${escapeHtml(product.longDescription)}</p>`
+    : "";
+  return `
+    ${photoBlock}
+    <h2>${escapeHtml(product.description)}</h2>
+    <p class="product-card-price">${money(product.price)}</p>
+    ${descriptionBlock}
+    <div class="product-card-add">
+      <button class="qty-btn" data-qty-dec="${escapeHtml(product.code)}" type="button">−</button>
+      <input class="catalog-qty-input" data-qty-input="${escapeHtml(product.code)}" type="number" min="1" step="1" value="${qtyValue}" inputmode="numeric" />
+      <button class="qty-btn" data-qty-inc="${escapeHtml(product.code)}" type="button">+</button>
+    </div>
+    <button class="product-card-btn${inCart ? " product-card-btn--update" : ""}" data-add-to-cart="${escapeHtml(product.code)}" type="button">${btnText}</button>
+  `;
 }
 
 export function renderCartItems(money, escapeHtml) {

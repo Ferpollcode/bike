@@ -5,7 +5,7 @@ import {
   getCart, clearCart, addToCart, removeFromCart, updateCartQty,
   cartTotal, cartItemCount, renderCatalogGrid, renderCartItems,
   renderCategoryChips, renderPagination, sanitizeCartAgainstProducts,
-  initCartForCustomer
+  initCartForCustomer, renderProductModal
 } from "./catalog";
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -2281,26 +2281,26 @@ function bindCatalogEvents() {
     $("#catalogGrid")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
-  on("#catalogGrid", "click", (e) => {
+  function handleCatalogInteraction(e, container) {
     const addBtn = e.target.closest("[data-add-to-cart]");
     const decBtn = e.target.closest("[data-qty-dec]");
     const incBtn = e.target.closest("[data-qty-inc]");
 
     if (decBtn) {
-      const input = $("#catalogGrid").querySelector(`[data-qty-input="${decBtn.dataset.qtyDec}"]`);
+      const input = container.querySelector(`[data-qty-input="${decBtn.dataset.qtyDec}"]`);
       if (input) input.value = Math.max(1, parseInt(input.value || "1", 10) - 1);
-      return;
+      return true;
     }
     if (incBtn) {
-      const input = $("#catalogGrid").querySelector(`[data-qty-input="${incBtn.dataset.qtyInc}"]`);
+      const input = container.querySelector(`[data-qty-input="${incBtn.dataset.qtyInc}"]`);
       if (input) input.value = parseInt(input.value || "1", 10) + 1;
-      return;
+      return true;
     }
     if (addBtn) {
       const code = addBtn.dataset.addToCart;
       const product = state.products.find((p) => p.code === code);
-      if (!product) return;
-      const qtyInput = $("#catalogGrid").querySelector(`[data-qty-input="${code}"]`);
+      if (!product) return true;
+      const qtyInput = container.querySelector(`[data-qty-input="${code}"]`);
       const inputQty = Math.max(1, parseInt(qtyInput?.value || "1", 10));
       const currentInCart = getCart().find((i) => i.code === code)?.qty || 0;
       const delta = inputQty - currentInCart;
@@ -2309,7 +2309,38 @@ function bindCatalogEvents() {
       if (qtyInput) qtyInput.value = newTotal;
       renderCartPanels();
       persistCart();
+      return true;
     }
+    return false;
+  }
+
+  on("#catalogGrid", "click", (e) => {
+    if (handleCatalogInteraction(e, $("#catalogGrid"))) return;
+    const card = e.target.closest("[data-open-product]");
+    if (card) openProductModal(card.dataset.openProduct);
+  });
+
+  function openProductModal(code) {
+    const product = state.products.find((p) => p.code === code);
+    if (!product) return;
+    $("#productModalBody").innerHTML = renderProductModal(product, money, escapeHtml);
+    $("#productModal").classList.remove("hidden");
+  }
+
+  function closeProductModal() {
+    $("#productModal").classList.add("hidden");
+  }
+
+  on("#productModal", "click", (e) => {
+    if (e.target === $("#productModal") || e.target.closest("[data-close-product-modal]")) {
+      closeProductModal();
+      return;
+    }
+    handleCatalogInteraction(e, $("#productModalBody"));
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#productModal").classList.contains("hidden")) closeProductModal();
   });
 
   const handleCartAction = (e) => {
