@@ -1375,6 +1375,49 @@ main.app-shell.hidden {
   color: var(--muted);
 }
 
+.product-card-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.product-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.product-modal-photo {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.product-modal-photo-placeholder {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #eef2f6;
+  color: var(--muted);
+}
+
+.product-modal-description {
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  white-space: pre-wrap;
+}
+
 .product-card-name {
   font-size: 14px;
   font-weight: 700;

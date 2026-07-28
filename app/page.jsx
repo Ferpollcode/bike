@@ -406,6 +406,15 @@ const appMarkup = `
         </div>
       </div>
     </div>
+
+    <div class="modal hidden" id="productModal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-actions no-print">
+          <button id="closeProductModal" type="button" data-close-product-modal>Cerrar</button>
+        </div>
+        <div class="product-modal-body" id="productModalBody"></div>
+      </div>
+    </div>
 `;
 
 export default function HomePage() {
