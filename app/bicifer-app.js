@@ -46,6 +46,7 @@ let analyticsChart = null;
 let analyticsPeriod = "mes";
 let analyticsAsOfDate = today();
 let editingProductCode = null;
+let pendingNewProductPhotoUrl = null;
 let catalogPage = 1;
 let catalogSort = "alpha";
 let catalogCategory = "";
@@ -1576,6 +1577,7 @@ function renderProductPhotoPreview(url) {
 
 function openNewProductForm() {
   editingProductCode = null;
+  pendingNewProductPhotoUrl = null;
   $("#productEditForm").reset();
   renderProductPhotoPreview(null);
   $("#productEditPanel h2").textContent = "Nuevo producto";
@@ -1630,9 +1632,10 @@ function saveProductEdit(event) {
       price: newPrice,
       category: newCategory,
       longDescription: newLongDescription,
-      photoUrl: null,
+      photoUrl: pendingNewProductPhotoUrl,
       updatedAt: Date.now()
     });
+    pendingNewProductPhotoUrl = null;
     unmarkDeleted("products", newCode);
     $("#productEditPanel").classList.add("hidden");
     saveState();
@@ -1801,14 +1804,20 @@ function bindEvents() {
       event.target.value = "";
       return;
     }
-    if (!editingProductCode) {
-      alert("Guardá el producto primero y después editalo para subirle una foto.");
+    const codeForUpload = editingProductCode || normalizeCode($("#editProductCode").value);
+    if (!codeForUpload) {
+      alert("Ingresá el código del producto antes de subir la foto.");
       event.target.value = "";
       return;
     }
-    const url = await uploadProductPhoto(editingProductCode, file);
+    const url = await uploadProductPhoto(codeForUpload, file);
     event.target.value = "";
     if (!url) return;
+    if (!editingProductCode) {
+      pendingNewProductPhotoUrl = url;
+      renderProductPhotoPreview(url);
+      return;
+    }
     const idx = state.products.findIndex((p) => normalizeCode(p.code) === normalizeCode(editingProductCode));
     if (idx < 0) return;
     state.products[idx] = { ...state.products[idx], photoUrl: url, updatedAt: Date.now() };
@@ -1818,6 +1827,7 @@ function bindEvents() {
   });
   on("#cancelProductEdit", "click", () => {
     editingProductCode = null;
+    pendingNewProductPhotoUrl = null;
     $("#productEditPanel").classList.add("hidden");
   });
   on("#newProduct", "click", openNewProductForm);
