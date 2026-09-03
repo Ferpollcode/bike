@@ -73,9 +73,10 @@ export function cartItemCount() {
   return cart.reduce((sum, item) => sum + item.qty, 0);
 }
 
-// Removes items whose product was deleted; refreshes prices to current catalog values.
+// Removes items whose product was deleted or marked inactive; refreshes prices to current catalog values.
 export function sanitizeCartAgainstProducts(products) {
-  const productMap = new Map(products.map((p) => [p.code, p]));
+  const activeProducts = (products || []).filter((p) => p.active !== false);
+  const productMap = new Map(activeProducts.map((p) => [p.code, p]));
   const before = cart.length;
   cart = cart.filter((item) => productMap.has(item.code));
   cart.forEach((item) => {

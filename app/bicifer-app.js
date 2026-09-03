@@ -50,6 +50,7 @@ let pendingNewProductPhotoUrl = null;
 let catalogPage = 1;
 let catalogSort = "alpha";
 let catalogCategory = "";
+let productStatusFilter = "all";
 const CATALOG_PAGE_SIZE = 24;
 let session = null;
 
@@ -419,6 +420,7 @@ function parseProductsFromRows(rows) {
   const priceIndex = findColumn(headers, ["precio", "price"]);
   const categoryIndex = findColumn(headers, ["categoria", "category", "cat"]);
   const longDescriptionIndex = findColumn(headers, ["descripcion_larga", "descripcion larga"]);
+  const activeIndex = findColumn(headers, ["activo", "active", "estado", "disponible", "habilitado"]);
 
   if (codeIndex < 0 || descriptionIndex < 0 || priceIndex < 0) {
     return {
@@ -461,7 +463,16 @@ function parseProductsFromRows(rows) {
 
     const category = categoryIndex >= 0 ? String(row[categoryIndex] || "").trim() : "";
     const longDescription = longDescriptionIndex >= 0 ? String(row[longDescriptionIndex] || "").trim() : "";
-    products.push({ code, description, price: price ?? 0, category, longDescription });
+    let active = undefined;
+    if (activeIndex >= 0) {
+      const rawActive = String(row[activeIndex] ?? "").trim().toLowerCase();
+      if (rawActive) {
+        active = !["no", "false", "0", "inactivo", "desactivado", "agotado", "sin stock"].includes(rawActive);
+      }
+    }
+    const item = { code, description, price: price ?? 0, category, longDescription };
+    if (active !== undefined) item.active = active;
+    products.push(item);
   });
 
   const byCode = new Map();
@@ -575,29 +586,56 @@ function renderProducts() {
   const productsList = $("#productsList");
   if (!productSearch || !productsList) return;
 
+  const totalAll = state.products.length;
+  const totalActive = state.products.filter((p) => p.active !== false).length;
+  const totalInactive = totalAll - totalActive;
+
+  if ($("#countProductsAll")) $("#countProductsAll").textContent = `(${totalAll})`;
+  if ($("#countProductsActive")) $("#countProductsActive").textContent = `(${totalActive})`;
+  if ($("#countProductsInactive")) $("#countProductsInactive").textContent = `(${totalInactive})`;
+
   const term = productSearch.value.toLowerCase().trim();
   const products = state.products
-    .filter((product) => `${product.code} ${product.description}`.toLowerCase().includes(term))
+    .filter((product) => {
+      const matchesTerm = !term || `${product.code} ${product.description}`.toLowerCase().includes(term);
+      if (!matchesTerm) return false;
+      const isActive = product.active !== false;
+      if (productStatusFilter === "active") return isActive;
+      if (productStatusFilter === "inactive") return !isActive;
+      return true;
+    })
     .sort((a, b) => a.description.localeCompare(b.description));
 
   productsList.innerHTML = products.length
     ? products
-        .map((product) => `
-          <article class="card">
+        .map((product) => {
+          const isActive = product.active !== false;
+          return `
+          <article class="card ${isActive ? "" : "card-inactive"}">
             <div class="section-title">
-              <h3>${escapeHtml(product.description)}</h3>
+              <div class="product-title-group">
+                <h3>${escapeHtml(product.description)}</h3>
+                <span class="pill ${isActive ? "pill-active" : "pill-inactive"}">${isActive ? "Activo" : "Inactivo"}</span>
+              </div>
               <strong>${money(product.price)}</strong>
             </div>
             <p class="muted">Codigo: ${escapeHtml(product.code)}</p>
             ${product.category ? `<span class="pill">${escapeHtml(product.category)}</span>` : ""}
-            <div class="card-actions">
-              <button type="button" data-edit-product="${escapeHtml(product.code)}">Editar</button>
-              <button type="button" data-delete-product="${escapeHtml(product.code)}">Borrar</button>
+            <div class="card-actions product-card-actions">
+              <label class="product-status-toggle" title="${isActive ? 'Desactivar producto (ocultar por falta de stock)' : 'Activar producto (mostrar disponible)'}">
+                <input type="checkbox" data-toggle-product-active="${escapeHtml(product.code)}" ${isActive ? "checked" : ""}>
+                <span>${isActive ? "En venta" : "Sin stock (inactivo)"}</span>
+              </label>
+              <div class="product-actions-btns">
+                <button type="button" data-edit-product="${escapeHtml(product.code)}">Editar</button>
+                <button type="button" data-delete-product="${escapeHtml(product.code)}">Borrar</button>
+              </div>
             </div>
           </article>
-        `)
+        `;
+        })
         .join("")
-    : `<div class="card"><p class="muted">No hay productos cargados.</p></div>`;
+    : `<div class="card"><p class="muted">${productStatusFilter === "inactive" ? "No hay productos inactivos." : (productStatusFilter === "active" ? "No hay productos activos." : "No hay productos cargados.")}</p></div>`;
 }
 
 function getBalance(customerId) {
@@ -617,6 +655,11 @@ function getBalanceAsOf(customerId, endDate) {
 function renderAccount() {
   const customerId = $("#accountCustomer").value || state.customers[0]?.id || "";
   if (customerId) $("#accountCustomer").value = customerId;
+  const customer = customerById(customerId);
+  const searchInput = $("#accountCustomerSearch");
+  if (searchInput && customer && document.activeElement !== searchInput) {
+    searchInput.value = customer.name;
+  }
   $("#accountBalance").textContent = money(getBalance(customerId));
 
   const entries = state.ledger
@@ -632,11 +675,53 @@ function renderAccount() {
               <span class="${entry.amount >= 0 ? "amount-debit" : "amount-credit"}">${money(entry.amount)}</span>
             </div>
             <p>${escapeHtml(entry.note || "")}</p>
-            <p class="muted">${entry.date}</p>
+            <div class="ledger-card-footer">
+              <p class="muted" style="margin: 0;">${entry.date}</p>
+              <button type="button" class="btn-delete-entry" data-delete-ledger-entry="${entry.id}">Borrar movimiento</button>
+            </div>
           </article>
         `)
         .join("")
     : `<div class="card"><p class="muted">Sin movimientos para este cliente.</p></div>`;
+}
+
+function deleteAccount() {
+  const customerId = $("#accountCustomer").value;
+  const customer = customerById(customerId);
+  if (!customer) {
+    alert("Seleccioná un cliente primero.");
+    return;
+  }
+
+  const customerEntries = state.ledger.filter((entry) => entry.customerId === customerId);
+  if (!customerEntries.length) {
+    alert(`La cuenta corriente de ${customer.name} no tiene movimientos registrados (saldo actual: $0).`);
+    return;
+  }
+
+  const balance = getBalance(customerId);
+  const confirmMsg = `¿Eliminar la cuenta corriente de ${customer.name}?\n\nSe borrarán los ${customerEntries.length} movimientos y pagos registrados (saldo actual: ${money(balance)}).\nEl saldo volverá a $0.\n\n¿Deseas continuar?`;
+  if (!confirm(confirmMsg)) return;
+
+  customerEntries.forEach((entry) => markDeleted("ledger", entry.id));
+  state.ledger = state.ledger.filter((entry) => entry.customerId !== customerId);
+  saveState();
+  renderAccount();
+  renderAnalytics();
+  alert(`La cuenta corriente de ${customer.name} fue eliminada con éxito.`);
+}
+
+function deleteLedgerEntry(entryId) {
+  const entry = state.ledger.find((e) => e.id === entryId);
+  if (!entry) return;
+  const typeLabel = entry.type === "sale" ? "venta" : "pago";
+  const desc = entry.note ? ` ("${entry.note}")` : "";
+  if (!confirm(`¿Borrar este movimiento de ${typeLabel}${desc} por ${money(entry.amount)}?`)) return;
+  markDeleted("ledger", entry.id);
+  state.ledger = state.ledger.filter((e) => e.id !== entryId);
+  saveState();
+  renderAccount();
+  renderAnalytics();
 }
 
 function renderReceipts() {
@@ -1496,11 +1581,15 @@ function confirmProductImport() {
     const existing = byCode.get(code);
     const category = product.category || existing?.category || "";
     const longDescription = product.longDescription || existing?.longDescription || "";
+    const active = product.active !== undefined
+      ? product.active
+      : (existing?.active !== undefined ? existing.active : true);
     byCode.set(code, {
       ...existing,
       ...product,
       category,
       longDescription,
+      active,
       photoUrl: existing?.photoUrl || null,
       updatedAt: Date.now()
     });
@@ -1579,6 +1668,7 @@ function openNewProductForm() {
   editingProductCode = null;
   pendingNewProductPhotoUrl = null;
   $("#productEditForm").reset();
+  if ($("#editProductActive")) $("#editProductActive").checked = true;
   renderProductPhotoPreview(null);
   $("#productEditPanel h2").textContent = "Nuevo producto";
   $("#productEditForm button[type='submit']").textContent = "Crear producto";
@@ -1595,6 +1685,9 @@ function loadProductForEdit(code) {
   $("#editProductCode").value = product.code;
   $("#editProductDescription").value = product.description;
   $("#editProductPrice").value = product.price;
+  if ($("#editProductActive")) {
+    $("#editProductActive").checked = product.active !== false;
+  }
   if ($("#editProductCategory")) {
     $("#editProductCategory").value = product.category || "";
     const datalist = $("#categoryOptions");
@@ -1620,6 +1713,7 @@ function saveProductEdit(event) {
   }
   const newCategory = ($("#editProductCategory")?.value || "").trim();
   const newLongDescription = $("#editProductLongDescription").value.trim();
+  const newActive = $("#editProductActive") ? $("#editProductActive").checked : true;
 
   if (!editingProductCode) {
     if (state.products.some((p) => normalizeCode(p.code) === newCode)) {
@@ -1632,6 +1726,7 @@ function saveProductEdit(event) {
       price: newPrice,
       category: newCategory,
       longDescription: newLongDescription,
+      active: newActive,
       photoUrl: pendingNewProductPhotoUrl,
       updatedAt: Date.now()
     });
@@ -1650,11 +1745,31 @@ function saveProductEdit(event) {
     alert(`Ya existe un producto con el codigo ${newCode}.`);
     return;
   }
-  state.products[idx] = { ...state.products[idx], code: newCode, description: newDesc, price: newPrice, category: newCategory, longDescription: newLongDescription, updatedAt: Date.now() };
+  state.products[idx] = {
+    ...state.products[idx],
+    code: newCode,
+    description: newDesc,
+    price: newPrice,
+    category: newCategory,
+    longDescription: newLongDescription,
+    active: newActive,
+    updatedAt: Date.now()
+  };
   unmarkDeleted("products", newCode);
   sanitizeCartAgainstProducts(state.products);
   editingProductCode = null;
   $("#productEditPanel").classList.add("hidden");
+  saveState();
+  render();
+}
+
+function toggleProductActive(code, forceStatus) {
+  const product = state.products.find((p) => normalizeCode(p.code) === normalizeCode(code));
+  if (!product) return;
+  const nextActive = typeof forceStatus === "boolean" ? forceStatus : !(product.active !== false);
+  product.active = nextActive;
+  product.updatedAt = Date.now();
+  sanitizeCartAgainstProducts(state.products);
   saveState();
   render();
 }
@@ -1797,6 +1912,21 @@ function bindEvents() {
     if (editCode) loadProductForEdit(editCode);
     if (deleteCode) deleteProduct(deleteCode);
   });
+  on("#productsList", "change", (event) => {
+    const toggleCode = event.target.dataset.toggleProductActive;
+    if (toggleCode) {
+      toggleProductActive(toggleCode, event.target.checked);
+    }
+  });
+  on("#productos", "click", (event) => {
+    const filterBtn = event.target.closest(".product-filter-btn");
+    if (!filterBtn) return;
+    productStatusFilter = filterBtn.dataset.productFilter || "all";
+    $$(".product-filter-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.productFilter === productStatusFilter);
+    });
+    renderProducts();
+  });
   on("#productEditForm", "submit", saveProductEdit);
   on("#editProductPhoto", "change", async (event) => {
     const file = event.target.files[0];
@@ -1833,7 +1963,13 @@ function bindEvents() {
   on("#newProduct", "click", openNewProductForm);
 
   on("#saveSale", "click", saveReceipt);
-  on("#accountCustomer", "change", renderAccount);
+  on("#accountCustomer", "change", () => {
+    const customer = customerById($("#accountCustomer").value);
+    if (customer && $("#accountCustomerSearch")) {
+      $("#accountCustomerSearch").value = customer.name;
+    }
+    renderAccount();
+  });
   on("#receiptSearch", "input", renderReceipts);
   on("#productSearch", "input", renderProducts);
   const productPicker = $("#productPicker");
@@ -1850,7 +1986,7 @@ function bindEvents() {
       return;
     }
     const matches = state.products
-      .filter((p) => `${p.code} ${p.description}`.toLowerCase().includes(term))
+      .filter((p) => p.active !== false && `${p.code} ${p.description}`.toLowerCase().includes(term))
       .slice(0, 25);
     if (!matches.length) {
       productDropdown.innerHTML = `<div class="product-dropdown-empty">Sin resultados</div>`;
@@ -1887,6 +2023,96 @@ function bindEvents() {
     productPicker.value = "";
     productDropdown.classList.add("hidden");
     productPicker.blur();
+  });
+
+  const accountCustomerSearch = $("#accountCustomerSearch");
+  const accountCustomerDropdown = $("#accountCustomerDropdown");
+
+  function updateAccountCustomerDropdown() {
+    if (!accountCustomerSearch || !accountCustomerDropdown) return;
+    const term = accountCustomerSearch.value.toLowerCase().trim();
+    if (!term) {
+      accountCustomerDropdown.classList.add("hidden");
+      return;
+    }
+    const matches = state.customers
+      .filter((c) => (c.name || "").toLowerCase().includes(term) || (c.phone || "").includes(term))
+      .slice(0, 15);
+
+    if (!matches.length) {
+      accountCustomerDropdown.innerHTML = `<div class="customer-dropdown-empty">Sin resultados</div>`;
+      accountCustomerDropdown.classList.remove("hidden");
+      return;
+    }
+
+    accountCustomerDropdown.innerHTML = matches
+      .map((c) => {
+        const balance = getBalance(c.id);
+        const balanceClass = balance > 0 ? "amount-debit" : (balance < 0 ? "amount-credit" : "muted");
+        return `
+          <div class="customer-dropdown-item" data-customer-id="${escapeHtml(c.id)}">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <strong>${escapeHtml(c.name)}</strong>
+              <span class="${balanceClass}" style="font-size:13px;">${money(balance)}</span>
+            </div>
+            ${c.phone ? `<small class="muted">${escapeHtml(c.phone)}</small>` : ""}
+          </div>
+        `;
+      })
+      .join("");
+    accountCustomerDropdown.classList.remove("hidden");
+  }
+
+  function selectCustomerForAccount(customerId) {
+    const customer = customerById(customerId);
+    if (!customer) return;
+    $("#accountCustomer").value = customer.id;
+    if (accountCustomerSearch) accountCustomerSearch.value = customer.name;
+    accountCustomerDropdown?.classList.add("hidden");
+    renderAccount();
+  }
+
+  if (accountCustomerSearch && accountCustomerDropdown) {
+    accountCustomerSearch.addEventListener("input", updateAccountCustomerDropdown);
+    accountCustomerSearch.addEventListener("focus", updateAccountCustomerDropdown);
+    accountCustomerSearch.addEventListener("blur", () => {
+      setTimeout(() => {
+        accountCustomerDropdown.classList.add("hidden");
+        const currentCustomer = customerById($("#accountCustomer")?.value);
+        if (currentCustomer && accountCustomerSearch) {
+          accountCustomerSearch.value = currentCustomer.name;
+        }
+      }, 250);
+    });
+    accountCustomerSearch.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const term = accountCustomerSearch.value.toLowerCase().trim();
+        const match = state.customers.find((c) => (c.name || "").toLowerCase().includes(term));
+        if (match) {
+          selectCustomerForAccount(match.id);
+          accountCustomerSearch.blur();
+        }
+      }
+    });
+    accountCustomerDropdown.addEventListener("mousedown", (e) => {
+      const item = e.target.closest(".customer-dropdown-item");
+      if (!item) return;
+      e.preventDefault();
+      selectCustomerForAccount(item.dataset.customerId);
+    });
+    accountCustomerDropdown.addEventListener("touchstart", (e) => {
+      const item = e.target.closest(".customer-dropdown-item");
+      if (!item) return;
+      selectCustomerForAccount(item.dataset.customerId);
+      accountCustomerSearch.blur();
+    });
+  }
+
+  on("#deleteAccountBtn", "click", deleteAccount);
+  on("#accountLedger", "click", (event) => {
+    const entryId = event.target.dataset.deleteLedgerEntry;
+    if (entryId) deleteLedgerEntry(entryId);
   });
 
   on("#savePayment", "click", () => {
@@ -2206,12 +2432,13 @@ function renderCatalog() {
   const grid = $("#catalogGrid");
   if (!grid) return;
 
-  const categories = [...new Set(state.products.map((p) => p.category || "").filter(Boolean))].sort();
+  const categories = [...new Set(state.products.filter((p) => p.active !== false).map((p) => p.category || "").filter(Boolean))].sort();
   if (catalogCategory && !categories.includes(catalogCategory)) catalogCategory = "";
 
   const term = ($("#catalogSearch")?.value || "").toLowerCase().trim();
 
   let products = state.products.filter((p) => {
+    if (p.active === false) return false;
     const matchSearch = !term || `${p.code} ${p.description}`.toLowerCase().includes(term);
     const matchCategory = !catalogCategory || (p.category || "") === catalogCategory;
     return matchSearch && matchCategory;

@@ -133,12 +133,12 @@ const appMarkup = `
     <section class="view" id="productos">
       <div class="panel">
         <h2>Carga masiva de productos</h2>
-        <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, producto, precio. Las columnas categoria y descripcion_larga son opcionales.</p>
+        <p class="muted">Cargar una planilla de Excel .xlsx. Encabezados requeridos: codigo, producto, precio. Las columnas categoria, descripcion_larga y activo (si/no) son opcionales.</p>
         <p class="muted">Si volves a importar la lista, los productos con el mismo codigo se actualizan (la foto y la descripcion larga cargadas a mano no se pierden). Si un nombre ya existe con otro codigo, se avisa antes de confirmar.</p>
         <div class="sample-format">
-          <code>codigo | producto | precio | categoria | descripcion_larga</code>
-          <code>FER001 | Martillo cabo madera | 4500 | Ferretería | Martillo de acero forjado, cabo de madera de fresno.</code>
-          <code>BIC010 | Camara rodado 29 | 3800 | Bicicletas | </code>
+          <code>codigo | producto | precio | categoria | descripcion_larga | activo</code>
+          <code>FER001 | Martillo cabo madera | 4500 | Ferretería | Martillo de acero forjado, cabo de madera de fresno. | si</code>
+          <code>BIC010 | Camara rodado 29 | 3800 | Bicicletas | | si</code>
         </div>
         <label class="file-button full">Importar Excel<input id="importProducts" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" type="file" /></label>
         <div id="productImportPreview" class="import-preview hidden">
@@ -171,6 +171,13 @@ const appMarkup = `
             <datalist id="categoryOptions"></datalist>
           </label>
           <label>Descripción larga (opcional)<textarea id="editProductLongDescription" rows="3"></textarea></label>
+          <div class="product-active-field">
+            <label class="toggle-checkbox-label">
+              <input id="editProductActive" type="checkbox" checked />
+              <span><strong>Producto activo</strong> (visible en ventas y catálogo)</span>
+            </label>
+            <p class="muted field-help">Destildá esta opción cuando te quedes sin stock para ocultarlo temporalmente sin borrarlo.</p>
+          </div>
           <label class="file-button">Subir foto<input id="editProductPhoto" type="file" accept="image/*" /></label>
           <img id="productPhotoPreview" class="product-photo-preview hidden" alt="Vista previa de la foto" />
           <button class="primary full" type="submit">Guardar cambios</button>
@@ -185,14 +192,31 @@ const appMarkup = `
           </div>
         </div>
         <input id="productSearch" type="search" placeholder="Buscar producto" style="margin-top: 10px" />
+        <div class="product-filters" style="margin-top: 10px">
+          <button class="product-filter-btn active" data-product-filter="all" type="button">Todos <span id="countProductsAll"></span></button>
+          <button class="product-filter-btn" data-product-filter="active" type="button">Activos <span id="countProductsActive"></span></button>
+          <button class="product-filter-btn" data-product-filter="inactive" type="button">Inactivos <span id="countProductsInactive"></span></button>
+        </div>
       </div>
       <div class="list" id="productsList"></div>
     </section>
 
     <section class="view" id="cuentas">
       <div class="panel">
-        <h2>Cuenta corriente</h2>
-        <label>Cliente<select id="accountCustomer"></select></label>
+        <div class="section-title">
+          <h2>Cuenta corriente</h2>
+          <button id="deleteAccountBtn" type="button" class="danger-btn" title="Eliminar cuenta corriente del cliente">Eliminar cuenta</button>
+        </div>
+        <div class="field">
+          <label for="accountCustomerSearch">Buscar cliente (escribir o seleccionar)</label>
+          <div class="customer-picker-wrap">
+            <input id="accountCustomerSearch" type="search" placeholder="Escribir nombre o teléfono del cliente..." autocomplete="off" />
+            <div id="accountCustomerDropdown" class="customer-dropdown hidden"></div>
+          </div>
+        </div>
+        <label>O seleccionar de la lista
+          <select id="accountCustomer"></select>
+        </label>
         <div class="balance-box"><span>Saldo actual</span><strong id="accountBalance">$0</strong></div>
         <button class="primary full" id="shareAccountPdf" type="button">Enviar cuenta PDF por WhatsApp</button>
       </div>
