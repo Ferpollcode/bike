@@ -1,0 +1,94 @@
+<h2>¿Qué métricas querés ver?</h2>
+<p class="subtitle">Seleccioná todas las que te interesen. Podés elegir varias.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="ventas-total" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Total vendido en el período</h3>
+      <p>Suma de todos los remitos en el rango de fechas. La métrica principal.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ventas-condicion" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Ventas por condición: contado vs cuenta corriente</h3>
+      <p>Cuánto se cobró al momento vs cuánto quedó en cuenta. Con barra proporcional.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="cantidad-remitos" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Cantidad de remitos emitidos</h3>
+      <p>Número de transacciones en el período. Útil para ver volumen de operaciones.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ticket-promedio" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>Ticket promedio</h3>
+      <p>Total vendido ÷ cantidad de remitos. Muestra si las ventas son grandes o chicas.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="top-productos" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Productos más vendidos (por cantidad)</h3>
+      <p>Ranking de artículos por unidades vendidas en el período.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="top-productos-monto" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>Productos que más facturaron (por monto)</h3>
+      <p>Ranking de artículos por $ generado. Puede diferir mucho del ranking por cantidad.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="saldo-cuentas" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Saldo total en cuentas corrientes</h3>
+      <p>Cuánto se debe en total sumando todos los clientes con saldo negativo.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="top-clientes-deuda" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>Clientes con mayor deuda</h3>
+      <p>Ranking de clientes por saldo deudor. Útil para hacer seguimiento de cobros.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="top-clientes-compra" onclick="toggleSelect(this)">
+    <div class="letter">9</div>
+    <div class="content">
+      <h3>Clientes que más compraron</h3>
+      <p>Ranking de clientes por monto total de compras en el período.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ingresos-cobrados" onclick="toggleSelect(this)">
+    <div class="letter">10</div>
+    <div class="content">
+      <h3>Ingresos realmente cobrados (pagos registrados)</h3>
+      <p>Suma de pagos asentados en cuentas corrientes + ventas al contado. Lo que realmente entró en caja.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="grafico-ventas" onclick="toggleSelect(this)">
+    <div class="letter">11</div>
+    <div class="content">
+      <h3>Gráfico de ventas a lo largo del tiempo</h3>
+      <p>Barras por día/semana/mes para ver tendencias. ¿Cuándo vendés más?</p>
+    </div>
+  </div>
+
+</div>
